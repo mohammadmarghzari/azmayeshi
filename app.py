@@ -1,6 +1,9 @@
 import os
 import streamlit as st
+from dotenv import load_dotenv
 from openai import OpenAI
+
+load_dotenv()  # بارگذاری متغیرهای محیطی از فایل .env
 
 st.title("تولید تصویر از متن با OpenAI API")
 
