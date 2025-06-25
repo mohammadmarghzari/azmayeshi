@@ -5,6 +5,20 @@ import plotly.graph_objects as go
 import plotly.express as px
 import yfinance as yf
 
+# --------- تابع رفع خطا و تبدیل داده yfinance به DataFrame مناسب ---------
+def get_price_dataframe_from_yf(data, ticker):
+    try:
+        if isinstance(data.columns, pd.MultiIndex):
+            price_series = data[ticker]['Close']
+        else:
+            price_series = data['Close']
+        df = price_series.reset_index()
+        df.columns = ['Date', 'Price']
+        return df, None
+    except Exception as e:
+        return None, f"خطا در پردازش داده {ticker}: {e}"
+# -------------------------------------------------------------------------
+
 st.set_page_config(page_title="تحلیل پرتفو با مونت‌کارلو، CVaR و Married Put", layout="wide")
 st.title("📊 ابزار تحلیل پرتفو با روش مونت‌کارلو، CVaR و استراتژی Married Put")
 
@@ -35,6 +49,10 @@ with st.sidebar.expander("دریافت داده آنلاین 📥"):
     end = st.date_input("تاریخ پایان", value=pd.to_datetime("today"))
     download_btn = st.button("دریافت داده")
 
+# برای ذخیره داده‌های دانلود شده در session_state
+if "downloaded_dfs" not in st.session_state:
+    st.session_state["downloaded_dfs"] = []
+
 if download_btn and tickers_input.strip():
     tickers = [t.strip() for t in tickers_input.strip().split(",") if t.strip()]
     try:
@@ -54,23 +72,30 @@ if download_btn and tickers_input.strip():
             st.session_state["downloaded_dfs"].extend(new_downloaded)
     except Exception as ex:
         st.error(f"خطا در دریافت داده: {ex}")
+
 period = st.sidebar.selectbox("بازه تحلیل بازده", ['ماهانه', 'سه‌ماهه', 'شش‌ماهه'])
 resample_rule = {'ماهانه': 'M', 'سه‌ماهه': 'Q', 'شش‌ماهه': '2Q'}[period]
 annual_factor = {'ماهانه': 12, 'سه‌ماهه': 4, 'شش‌ماهه': 2}[period]
 user_risk = st.sidebar.slider("ریسک هدف پرتفو (انحراف معیار سالانه)", 0.01, 1.0, 0.25, 0.01)
 cvar_alpha = st.sidebar.slider("سطح اطمینان CVaR", 0.80, 0.99, 0.95, 0.01)
 
+# داده‌های آپلود شده و دانلود شده را با هم ترکیب کن
+all_assets = []
 if uploaded_files:
+    for file in uploaded_files:
+        all_assets.append((file.name.split('.')[0], read_csv_file(file)))
+if st.session_state.get("downloaded_dfs"):
+    all_assets.extend(st.session_state["downloaded_dfs"])
+
+if all_assets:
     prices_df = pd.DataFrame()
     asset_names = []
     insured_assets = {}
 
-    for file in uploaded_files:
-        df = read_csv_file(file)
+    for name, df in all_assets:
         if df is None:
             continue
 
-        name = file.name.split('.')[0]
         if 'Date' not in df.columns or 'Price' not in df.columns:
             st.warning(f"فایل {name} باید دارای ستون‌های 'Date' و 'Price' باشد.")
             continue
@@ -124,7 +149,7 @@ if uploaded_files:
             risk_scale = 1 - insured_assets[name]['loss_percent'] / 100
             adjusted_cov.iloc[i, :] *= risk_scale
             adjusted_cov.iloc[:, i] *= risk_scale
-            preference_weights.append(1 / (std_devs[i] * risk_scale**0.7))  # وزن بیشتر در بیمه
+            preference_weights.append(1 / (std_devs[i] * risk_scale**0.7))
         else:
             preference_weights.append(1 / std_devs[i])
     preference_weights = np.array(preference_weights)
@@ -133,7 +158,7 @@ if uploaded_files:
     # شبیه‌سازی مونت‌کارلو با CVaR
     n_portfolios = 10000
     n_mc = 1000
-    results = np.zeros((5 + len(asset_names), n_portfolios)) # [0:ret, 1:std, 2:sharpe, 3:sortino, 4:cvar, ...weights]
+    results = np.zeros((5 + len(asset_names), n_portfolios))
     np.random.seed(42)
     rf = 0
 
@@ -149,7 +174,6 @@ if uploaded_files:
         sharpe_ratio = (port_return - rf) / port_std
         sortino_ratio = (port_return - rf) / downside_risk if downside_risk > 0 else np.nan
 
-        # Monte Carlo simulation for CVaR
         mc_sims = np.random.multivariate_normal(mean_returns/annual_factor, adjusted_cov/annual_factor, n_mc)
         port_mc_returns = np.dot(mc_sims, weights)
         VaR = np.percentile(port_mc_returns, (1 - cvar_alpha) * 100)
@@ -159,10 +183,9 @@ if uploaded_files:
         results[1, i] = port_std
         results[2, i] = sharpe_ratio
         results[3, i] = sortino_ratio
-        results[4, i] = -CVaR  # علامت منفی برای نمایش مقدار مثبت زیان
+        results[4, i] = -CVaR
         results[5:, i] = weights
 
-    # بهترین پرتفو بر اساس ریسک هدف
     best_idx = np.argmin(np.abs(results[1] - user_risk))
     best_return = results[0, best_idx]
     best_risk = results[1, best_idx]
@@ -170,7 +193,6 @@ if uploaded_files:
     best_sortino = results[3, best_idx]
     best_weights = results[5:, best_idx]
 
-    # بهترین پرتفو بر اساس کمترین CVaR
     best_cvar_idx = np.argmin(results[4])
     best_cvar_return = results[0, best_cvar_idx]
     best_cvar_risk = results[1, best_cvar_idx]
@@ -196,7 +218,6 @@ if uploaded_files:
     for i, name in enumerate(asset_names):
         st.markdown(f"🔸 وزن {name}: {best_cvar_weights[i]*100:.2f}%")
 
-    # جدول مقایسه وزن‌ها
     st.subheader("📋 جدول مقایسه وزن دارایی‌ها (مونت‌کارلو و CVaR)")
     compare_df = pd.DataFrame({
         'دارایی': asset_names,
@@ -206,14 +227,12 @@ if uploaded_files:
     compare_df['اختلاف وزن (%)'] = compare_df[f'وزن CVaR ({int(cvar_alpha*100)}%) (%)'] - compare_df['وزن مونت‌کارلو (%)']
     st.dataframe(compare_df.set_index('دارایی'), use_container_width=True, height=300)
 
-    # نمودار میله‌ای مقایسه وزن‌ها
     fig_w = go.Figure()
     fig_w.add_trace(go.Bar(x=asset_names, y=best_weights*100, name='مونت‌کارلو'))
     fig_w.add_trace(go.Bar(x=asset_names, y=best_cvar_weights*100, name=f'CVaR {int(cvar_alpha*100)}%'))
     fig_w.update_layout(barmode='group', title="مقایسه وزن دارایی‌ها در دو سبک")
     st.plotly_chart(fig_w, use_container_width=True)
 
-    # نمودار مرز کارای بازده-ریسک و بازده-CVaR
     st.subheader("🌈 نمودار مرز کارا")
     fig = px.scatter(
         x=results[1]*100,
@@ -239,7 +258,6 @@ if uploaded_files:
     ))
     st.plotly_chart(fig, use_container_width=True)
 
-    # نمودار Scatter بازده-CVaR
     st.subheader("🔵 نمودار بازده- CVaR برای پرتفوها")
     fig_cvar = px.scatter(
         x=results[4], y=results[0],
@@ -252,8 +270,6 @@ if uploaded_files:
                                   name='پرتفوی بهینه CVaR'))
     st.plotly_chart(fig_cvar, use_container_width=True)
 
-    # بقیه بخش‌های Married Put و پیش‌بینی قیمت آینده مثل گذشته:
-    # پیشنهاد دارایی‌ها با کمترین ریسک و بیشترین بازده (با بیمه)
     st.subheader("💡 دارایی‌های پیشنهادی بر اساس نسبت بازده به ریسک")
     asset_scores = {}
     for i, name in enumerate(asset_names):
@@ -308,7 +324,6 @@ if uploaded_files:
             except Exception as e:
                 st.error(f"❌ خطا در ذخیره تصویر: {e}")
 
-    # پیش‌بینی قیمت آتی و بازده برای هر دارایی
     st.subheader("🔮 پیش‌بینی قیمت و بازده آتی هر دارایی")
     future_months = 6 if period == 'شش‌ماهه' else (3 if period == 'سه‌ماهه' else 1)
     for i, name in enumerate(asset_names):
