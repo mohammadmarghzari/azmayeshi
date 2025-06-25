@@ -22,6 +22,37 @@ uploaded_files = st.sidebar.file_uploader(
     "چند فایل CSV آپلود کنید (هر دارایی یک فایل)", type=['csv'], accept_multiple_files=True, key="uploader"
 )
 
+with st.sidebar.expander("دریافت داده آنلاین 📥"):
+    st.markdown("""
+    <div dir="rtl" style="text-align: right;">
+    <b>راهنما:</b>
+    <br>نمادها را با کاما و بدون فاصله وارد کنید (مثال: <span style="direction:ltr;display:inline-block">BTC-USD,AAPL,ETH-USD</span>)
+    </div>
+    """, unsafe_allow_html=True)
+    tickers_input = st.text_input("نماد دارایی‌ها")
+    start = st.date_input("تاریخ شروع", value=pd.to_datetime("2023-01-01"))
+    end = st.date_input("تاریخ پایان", value=pd.to_datetime("today"))
+    download_btn = st.button("دریافت داده")
+
+if download_btn and tickers_input.strip():
+    tickers = [t.strip() for t in tickers_input.strip().split(",") if t.strip()]
+    try:
+        data = yf.download(tickers, start=start, end=end, progress=False, group_by='ticker', auto_adjust=True)
+        if data.empty:
+            st.error("داده‌ای دریافت نشد!")
+        else:
+            new_downloaded = []
+            for t in tickers:
+                df, err = get_price_dataframe_from_yf(data, t)
+                if df is not None:
+                    df['Date'] = pd.to_datetime(df['Date'])
+                    new_downloaded.append((t, df))
+                    st.success(f"داده {t} با موفقیت دانلود شد.")
+                else:
+                    st.error(f"{err}")
+            st.session_state["downloaded_dfs"].extend(new_downloaded)
+    except Exception as ex:
+        st.error(f"خطا در دریافت داده: {ex}")
 period = st.sidebar.selectbox("بازه تحلیل بازده", ['ماهانه', 'سه‌ماهه', 'شش‌ماهه'])
 resample_rule = {'ماهانه': 'M', 'سه‌ماهه': 'Q', 'شش‌ماهه': '2Q'}[period]
 annual_factor = {'ماهانه': 12, 'سه‌ماهه': 4, 'شش‌ماهه': 2}[period]
