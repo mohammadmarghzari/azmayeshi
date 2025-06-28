@@ -49,9 +49,9 @@ with st.sidebar.expander("دریافت داده آنلاین 📥"):
     end = st.date_input("تاریخ پایان", value=pd.to_datetime("today"))
     download_btn = st.button("دریافت داده")
 
-# اضافه کردن ورودی مقدار کل سرمایه به سایدبار
-st.sidebar.header("مقدار کل سرمایه")
-total_capital = st.sidebar.number_input("کل سرمایه (مثلاً به تومان)", min_value=0.0, value=10000000.0, step=10000.0)
+# ورودی مقدار سرمایه کل به دلار
+st.sidebar.header("سرمایه کل به دلار")
+total_capital = st.sidebar.number_input("مقدار کل سرمایه (دلار)", min_value=0.0, value=10000.0, step=100.0)
 
 # برای ذخیره داده‌های دانلود شده در session_state
 if "downloaded_dfs" not in st.session_state:
@@ -91,13 +91,13 @@ if uploaded_files:
 if st.session_state.get("downloaded_dfs"):
     all_assets.extend(st.session_state["downloaded_dfs"])
 
-# اضافه کردن ورودی مقدار سرمایه برای هر دارایی
+# مقدار سرمایه‌گذاری به دلار برای هر دارایی
 asset_capitals = {}
 for name, df in all_assets:
     if df is None:
         continue
     asset_capitals[name] = st.sidebar.number_input(
-        f"مقدار سرمایه برای {name}", min_value=0.0, value=0.0, step=1000.0, key=f"capital_{name}"
+        f"مقدار سرمایه برای {name} (دلار)", min_value=0.0, value=0.0, step=10.0, key=f"capital_{name}"
     )
 
 if all_assets:
@@ -260,13 +260,13 @@ if all_assets:
         )
         fig_pie_cap.update_traces(
             textinfo='percent+label',
-            hovertemplate='<b>%{label}</b><br>درصد: %{percent:.1%}<br>مقدار: %{value:,.0f>'
+            hovertemplate='<b>%{label}</b><br>درصد: %{percent:.1%}<br>مقدار: %{value:,.0f} دلار'
         )
         st.plotly_chart(fig_pie_cap, use_container_width=True)
         # نمایش جدول توزیع سرمایه
         dist_df = pd.DataFrame({
             'دارایی': asset_names,
-            'مقدار سرمایه': asset_amounts,
+            'مقدار سرمایه (دلار)': asset_amounts,
             'درصد از کل (%)': asset_percents
         })
         st.dataframe(dist_df.set_index('دارایی'))
