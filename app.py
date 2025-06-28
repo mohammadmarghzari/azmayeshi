@@ -49,10 +49,6 @@ with st.sidebar.expander("دریافت داده آنلاین 📥"):
     end = st.date_input("تاریخ پایان", value=pd.to_datetime("today"))
     download_btn = st.button("دریافت داده")
 
-# ورودی مقدار سرمایه کل به دلار
-st.sidebar.header("سرمایه کل به دلار")
-total_capital = st.sidebar.number_input("مقدار کل سرمایه (دلار)", min_value=0.0, value=10000.0, step=100.0)
-
 # برای ذخیره داده‌های دانلود شده در session_state
 if "downloaded_dfs" not in st.session_state:
     st.session_state["downloaded_dfs"] = []
@@ -91,14 +87,21 @@ if uploaded_files:
 if st.session_state.get("downloaded_dfs"):
     all_assets.extend(st.session_state["downloaded_dfs"])
 
-# مقدار سرمایه‌گذاری به دلار برای هر دارایی
-asset_capitals = {}
+# حداقل و حداکثر وزن هر دارایی (درصدی)
+asset_min_weights = {}
+asset_max_weights = {}
 for name, df in all_assets:
     if df is None:
         continue
-    asset_capitals[name] = st.sidebar.number_input(
-        f"مقدار سرمایه برای {name} (دلار)", min_value=0.0, value=0.0, step=10.0, key=f"capital_{name}"
-    )
+    col1, col2 = st.sidebar.columns(2)
+    with col1:
+        asset_min_weights[name] = st.number_input(
+            f"حداقل وزن {name} (%)", min_value=0.0, max_value=100.0, value=0.0, step=1.0, key=f"min_weight_{name}"
+        )
+    with col2:
+        asset_max_weights[name] = st.number_input(
+            f"حداکثر وزن {name} (%)", min_value=0.0, max_value=100.0, value=100.0, step=1.0, key=f"max_weight_{name}"
+        )
 
 if all_assets:
     prices_df = pd.DataFrame()
@@ -168,7 +171,7 @@ if all_assets:
     preference_weights = np.array(preference_weights)
     preference_weights /= np.sum(preference_weights)
 
-    # شبیه‌سازی مونت‌کارلو با CVaR
+    # شبیه‌سازی مونت‌کارلو با CVaR با رعایت محدودیت‌های وزن
     n_portfolios = 10000
     n_mc = 1000
     results = np.zeros((5 + len(asset_names), n_portfolios))
@@ -178,9 +181,18 @@ if all_assets:
     downside = returns.copy()
     downside[downside > 0] = 0
 
+    min_weights_arr = np.array([asset_min_weights.get(name, 0)/100 for name in asset_names])
+    max_weights_arr = np.array([asset_max_weights.get(name, 100)/100 for name in asset_names])
+
     for i in range(n_portfolios):
+        # تولید وزن‌های تصادفی در بازه min/max تعریف‌شده
         weights = np.random.random(len(asset_names)) * preference_weights
         weights /= np.sum(weights)
+        weights = min_weights_arr + (max_weights_arr - min_weights_arr) * weights
+        weights /= np.sum(weights)  # مجموع ۱ شود
+        # چک: اگر مجموع minهای وارد شده >۱، نرمالایز فقط بر مبنای min نباشد
+        if np.sum(min_weights_arr) > 1:
+            weights = min_weights_arr / np.sum(min_weights_arr)
         port_return = np.dot(weights, mean_returns)
         port_std = np.sqrt(np.dot(weights.T, np.dot(adjusted_cov, weights)))
         downside_risk = np.sqrt(np.dot(weights.T, np.dot(downside.cov() * annual_factor, weights)))
@@ -222,6 +234,17 @@ if all_assets:
     for i, name in enumerate(asset_names):
         st.markdown(f"🔹 وزن {name}: {best_weights[i]*100:.2f}%")
 
+    # Pie Chart سبک مونت‌کارلو
+    st.subheader("🥧 نمودار توزیع دارایی‌ها در پرتفو بهینه (مونت‌کارلو)")
+    fig_pie_mc = px.pie(
+        names=asset_names,
+        values=best_weights * 100,
+        title="توزیع وزنی دارایی‌ها در پرتفو بهینه (مونت‌کارلو)",
+        hole=0.3
+    )
+    fig_pie_mc.update_traces(textinfo='percent+label')
+    st.plotly_chart(fig_pie_mc, use_container_width=True)
+
     st.subheader(f"🟢 پرتفو بهینه بر اساس CVaR ({int(cvar_alpha*100)}%)")
     st.markdown(f"""
     - ✅ بازده سالانه: **{best_cvar_return:.2%}**
@@ -230,6 +253,16 @@ if all_assets:
     """)
     for i, name in enumerate(asset_names):
         st.markdown(f"🔸 وزن {name}: {best_cvar_weights[i]*100:.2f}%")
+    # Pie Chart سبک CVaR
+    st.subheader(f"🥧 نمودار توزیع دارایی‌ها در پرتفو بهینه (CVaR {int(cvar_alpha*100)}%)")
+    fig_pie_cvar = px.pie(
+        names=asset_names,
+        values=best_cvar_weights * 100,
+        title=f"توزیع وزنی دارایی‌ها در پرتفو بهینه (CVaR {int(cvar_alpha*100)}%)",
+        hole=0.3
+    )
+    fig_pie_cvar.update_traces(textinfo='percent+label')
+    st.plotly_chart(fig_pie_cvar, use_container_width=True)
 
     st.subheader("📋 جدول مقایسه وزن دارایی‌ها (مونت‌کارلو و CVaR)")
     compare_df = pd.DataFrame({
@@ -245,32 +278,6 @@ if all_assets:
     fig_w.add_trace(go.Bar(x=asset_names, y=best_cvar_weights*100, name=f'CVaR {int(cvar_alpha*100)}%'))
     fig_w.update_layout(barmode='group', title="مقایسه وزن دارایی‌ها در دو سبک")
     st.plotly_chart(fig_w, use_container_width=True)
-
-    # ----------- بخش اضافه شده: نمودار توزیع دارایی‌ها بر اساس سرمایه وارد شده -----------
-    total_entered_capital = sum(asset_capitals.get(name, 0) for name in asset_names)
-    if total_entered_capital > 0:
-        asset_amounts = [asset_capitals.get(name, 0) for name in asset_names]
-        asset_percents = [100 * asset_capitals.get(name, 0) / total_entered_capital for name in asset_names]
-        st.subheader("🥧 نمودار توزیع دارایی‌ها بر اساس سرمایه وارد شده")
-        fig_pie_cap = px.pie(
-            names=asset_names,
-            values=asset_amounts,
-            title="توزیع سرمایه بین دارایی‌ها",
-            hole=0.3
-        )
-        fig_pie_cap.update_traces(
-            textinfo='percent+label',
-            hovertemplate='<b>%{label}</b><br>درصد: %{percent:.1%}<br>مقدار: %{value:,.0f} دلار'
-        )
-        st.plotly_chart(fig_pie_cap, use_container_width=True)
-        # نمایش جدول توزیع سرمایه
-        dist_df = pd.DataFrame({
-            'دارایی': asset_names,
-            'مقدار سرمایه (دلار)': asset_amounts,
-            'درصد از کل (%)': asset_percents
-        })
-        st.dataframe(dist_df.set_index('دارایی'))
-    # --------------------------------------------------------------------------------------
 
     st.subheader("🌈 نمودار مرز کارا")
     fig = px.scatter(
