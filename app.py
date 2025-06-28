@@ -32,76 +32,82 @@ def read_csv_file(file):
         st.error(f"خطا در خواندن فایل {file.name}: {e}")
         return None
 
-st.sidebar.header("📂 بارگذاری فایل دارایی‌ها (CSV)")
-uploaded_files = st.sidebar.file_uploader(
-    "چند فایل CSV آپلود کنید (هر دارایی یک فایل)", type=['csv'], accept_multiple_files=True, key="uploader"
-)
+st.sidebar.markdown("## تنظیمات کلی 	:gear:")
+with st.sidebar.expander("تنظیمات کلی", expanded=True):
+    period = st.selectbox("بازه تحلیل بازده", ['ماهانه', 'سه‌ماهه', 'شش‌ماهه'])
+    rf = st.number_input("نرخ بدون ریسک سالانه (%)", min_value=0.0, max_value=100.0, value=3.0, step=0.1)
+    st.markdown("---")
+    st.markdown("#### :money_with_wings: سرمایه کل (دلار)")
+    total_capital = st.number_input("سرمایه کل (دلار)", min_value=0.0, value=100000.0, step=100.0)
+    register_btn = st.button("ثبت")
 
-with st.sidebar.expander("دریافت داده آنلاین 📥"):
-    st.markdown("""
-    <div dir="rtl" style="text-align: right;">
-    <b>راهنما:</b>
-    <br>نمادها را با کاما و بدون فاصله وارد کنید (مثال: <span style="direction:ltr;display:inline-block">BTC-USD,AAPL,ETH-USD</span>)
-    </div>
-    """, unsafe_allow_html=True)
-    tickers_input = st.text_input("نماد دارایی‌ها")
-    start = st.date_input("تاریخ شروع", value=pd.to_datetime("2023-01-01"))
-    end = st.date_input("تاریخ پایان", value=pd.to_datetime("today"))
-    download_btn = st.button("دریافت داده")
+with st.sidebar.expander("محدودیت وزن دارایی‌ها :lock:", expanded=True):
+    st.markdown("##### محدودیت وزن هر دارایی")
+    uploaded_files = st.file_uploader(
+        "چند فایل CSV آپلود کنید (هر دارایی یک فایل)", type=['csv'], accept_multiple_files=True, key="uploader"
+    )
+    # داده‌های آپلود شده و دانلود شده را با هم ترکیب کن
+    all_assets = []
+    if uploaded_files:
+        for file in uploaded_files:
+            all_assets.append((file.name.split('.')[0], read_csv_file(file)))
 
-# برای ذخیره داده‌های دانلود شده در session_state
-if "downloaded_dfs" not in st.session_state:
-    st.session_state["downloaded_dfs"] = []
+    if "downloaded_dfs" not in st.session_state:
+        st.session_state["downloaded_dfs"] = []
 
-if download_btn and tickers_input.strip():
-    tickers = [t.strip() for t in tickers_input.strip().split(",") if t.strip()]
-    try:
-        data = yf.download(tickers, start=start, end=end, progress=False, group_by='ticker', auto_adjust=True)
-        if data.empty:
-            st.error("داده‌ای دریافت نشد!")
-        else:
-            new_downloaded = []
-            for t in tickers:
-                df, err = get_price_dataframe_from_yf(data, t)
-                if df is not None:
-                    df['Date'] = pd.to_datetime(df['Date'])
-                    new_downloaded.append((t, df))
-                    st.success(f"داده {t} با موفقیت دانلود شد.")
-                else:
-                    st.error(f"{err}")
-            st.session_state["downloaded_dfs"].extend(new_downloaded)
-    except Exception as ex:
-        st.error(f"خطا در دریافت داده: {ex}")
+    with st.expander("دریافت داده آنلاین 📥"):
+        st.markdown("""
+        <div dir="rtl" style="text-align: right;">
+        <b>راهنما:</b>
+        <br>نمادها را با کاما و بدون فاصله وارد کنید (مثال: <span style="direction:ltr;display:inline-block">BTC-USD,AAPL,ETH-USD</span>)
+        </div>
+        """, unsafe_allow_html=True)
+        tickers_input = st.text_input("نماد دارایی‌ها")
+        start = st.date_input("تاریخ شروع", value=pd.to_datetime("2023-01-01"))
+        end = st.date_input("تاریخ پایان", value=pd.to_datetime("today"))
+        download_btn = st.button("دریافت داده")
 
-period = st.sidebar.selectbox("بازه تحلیل بازده", ['ماهانه', 'سه‌ماهه', 'شش‌ماهه'])
+    if download_btn and tickers_input.strip():
+        tickers = [t.strip() for t in tickers_input.strip().split(",") if t.strip()]
+        try:
+            data = yf.download(tickers, start=start, end=end, progress=False, group_by='ticker', auto_adjust=True)
+            if data.empty:
+                st.error("داده‌ای دریافت نشد!")
+            else:
+                new_downloaded = []
+                for t in tickers:
+                    df, err = get_price_dataframe_from_yf(data, t)
+                    if df is not None:
+                        df['Date'] = pd.to_datetime(df['Date'])
+                        new_downloaded.append((t, df))
+                        st.success(f"داده {t} با موفقیت دانلود شد.")
+                    else:
+                        st.error(f"{err}")
+                st.session_state["downloaded_dfs"].extend(new_downloaded)
+        except Exception as ex:
+            st.error(f"خطا در دریافت داده: {ex}")
+
+    if st.session_state.get("downloaded_dfs"):
+        all_assets.extend(st.session_state["downloaded_dfs"])
+
+    # حداقل و حداکثر وزن هر دارایی (درصدی)
+    asset_min_weights = {}
+    asset_max_weights = {}
+    for name, df in all_assets:
+        if df is None:
+            continue
+        asset_min_weights[name] = st.number_input(
+            f"حداقل وزن {name}", min_value=0.0, max_value=100.0, value=0.0, step=1.0, key=f"min_weight_{name}"
+        )
+        asset_max_weights[name] = st.number_input(
+            f"حداکثر وزن {name}", min_value=0.0, max_value=100.0, value=100.0, step=1.0, key=f"max_weight_{name}"
+        )
+
+# تنظیمات دیگر
 resample_rule = {'ماهانه': 'M', 'سه‌ماهه': 'Q', 'شش‌ماهه': '2Q'}[period]
 annual_factor = {'ماهانه': 12, 'سه‌ماهه': 4, 'شش‌ماهه': 2}[period]
 user_risk = st.sidebar.slider("ریسک هدف پرتفو (انحراف معیار سالانه)", 0.01, 1.0, 0.25, 0.01)
 cvar_alpha = st.sidebar.slider("سطح اطمینان CVaR", 0.80, 0.99, 0.95, 0.01)
-
-# داده‌های آپلود شده و دانلود شده را با هم ترکیب کن
-all_assets = []
-if uploaded_files:
-    for file in uploaded_files:
-        all_assets.append((file.name.split('.')[0], read_csv_file(file)))
-if st.session_state.get("downloaded_dfs"):
-    all_assets.extend(st.session_state["downloaded_dfs"])
-
-# حداقل و حداکثر وزن هر دارایی (درصدی)
-asset_min_weights = {}
-asset_max_weights = {}
-for name, df in all_assets:
-    if df is None:
-        continue
-    col1, col2 = st.sidebar.columns(2)
-    with col1:
-        asset_min_weights[name] = st.number_input(
-            f"حداقل وزن {name} (%)", min_value=0.0, max_value=100.0, value=0.0, step=1.0, key=f"min_weight_{name}"
-        )
-    with col2:
-        asset_max_weights[name] = st.number_input(
-            f"حداکثر وزن {name} (%)", min_value=0.0, max_value=100.0, value=100.0, step=1.0, key=f"max_weight_{name}"
-        )
 
 if all_assets:
     prices_df = pd.DataFrame()
@@ -176,7 +182,6 @@ if all_assets:
     n_mc = 1000
     results = np.zeros((5 + len(asset_names), n_portfolios))
     np.random.seed(42)
-    rf = 0
 
     downside = returns.copy()
     downside[downside > 0] = 0
@@ -196,8 +201,8 @@ if all_assets:
         port_return = np.dot(weights, mean_returns)
         port_std = np.sqrt(np.dot(weights.T, np.dot(adjusted_cov, weights)))
         downside_risk = np.sqrt(np.dot(weights.T, np.dot(downside.cov() * annual_factor, weights)))
-        sharpe_ratio = (port_return - rf) / port_std
-        sortino_ratio = (port_return - rf) / downside_risk if downside_risk > 0 else np.nan
+        sharpe_ratio = (port_return - rf/100) / port_std
+        sortino_ratio = (port_return - rf/100) / downside_risk if downside_risk > 0 else np.nan
 
         mc_sims = np.random.multivariate_normal(mean_returns/annual_factor, adjusted_cov/annual_factor, n_mc)
         port_mc_returns = np.dot(mc_sims, weights)
