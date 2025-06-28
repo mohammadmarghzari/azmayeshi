@@ -49,6 +49,10 @@ with st.sidebar.expander("دریافت داده آنلاین 📥"):
     end = st.date_input("تاریخ پایان", value=pd.to_datetime("today"))
     download_btn = st.button("دریافت داده")
 
+# اضافه کردن ورودی مقدار کل سرمایه به سایدبار
+st.sidebar.header("مقدار کل سرمایه")
+total_capital = st.sidebar.number_input("کل سرمایه (مثلاً به تومان)", min_value=0.0, value=10000000.0, step=10000.0)
+
 # برای ذخیره داده‌های دانلود شده در session_state
 if "downloaded_dfs" not in st.session_state:
     st.session_state["downloaded_dfs"] = []
@@ -86,6 +90,15 @@ if uploaded_files:
         all_assets.append((file.name.split('.')[0], read_csv_file(file)))
 if st.session_state.get("downloaded_dfs"):
     all_assets.extend(st.session_state["downloaded_dfs"])
+
+# اضافه کردن ورودی مقدار سرمایه برای هر دارایی
+asset_capitals = {}
+for name, df in all_assets:
+    if df is None:
+        continue
+    asset_capitals[name] = st.sidebar.number_input(
+        f"مقدار سرمایه برای {name}", min_value=0.0, value=0.0, step=1000.0, key=f"capital_{name}"
+    )
 
 if all_assets:
     prices_df = pd.DataFrame()
@@ -232,6 +245,32 @@ if all_assets:
     fig_w.add_trace(go.Bar(x=asset_names, y=best_cvar_weights*100, name=f'CVaR {int(cvar_alpha*100)}%'))
     fig_w.update_layout(barmode='group', title="مقایسه وزن دارایی‌ها در دو سبک")
     st.plotly_chart(fig_w, use_container_width=True)
+
+    # ----------- بخش اضافه شده: نمودار توزیع دارایی‌ها بر اساس سرمایه وارد شده -----------
+    total_entered_capital = sum(asset_capitals.get(name, 0) for name in asset_names)
+    if total_entered_capital > 0:
+        asset_amounts = [asset_capitals.get(name, 0) for name in asset_names]
+        asset_percents = [100 * asset_capitals.get(name, 0) / total_entered_capital for name in asset_names]
+        st.subheader("🥧 نمودار توزیع دارایی‌ها بر اساس سرمایه وارد شده")
+        fig_pie_cap = px.pie(
+            names=asset_names,
+            values=asset_amounts,
+            title="توزیع سرمایه بین دارایی‌ها",
+            hole=0.3
+        )
+        fig_pie_cap.update_traces(
+            textinfo='percent+label',
+            hovertemplate='<b>%{label}</b><br>درصد: %{percent:.1%}<br>مقدار: %{value:,.0f>'
+        )
+        st.plotly_chart(fig_pie_cap, use_container_width=True)
+        # نمایش جدول توزیع سرمایه
+        dist_df = pd.DataFrame({
+            'دارایی': asset_names,
+            'مقدار سرمایه': asset_amounts,
+            'درصد از کل (%)': asset_percents
+        })
+        st.dataframe(dist_df.set_index('دارایی'))
+    # --------------------------------------------------------------------------------------
 
     st.subheader("🌈 نمودار مرز کارا")
     fig = px.scatter(
