@@ -114,28 +114,13 @@ with st.sidebar.expander("ورود داده دارایی‌ها", expanded=True)
         except Exception as ex:
             st.error(f"خطا در دریافت داده: {ex}")
 
+# ------------------- بیمه برای هر دارایی -------------------
+insured_assets = {}
 if all_assets:
-    show_methods = st.multiselect(
-        "کدام سبک بهینه‌سازی پرتفو نمایش داده شود؟",
-        ["MPT (مارکوویتز کلاسیک)", "مونت‌کارلو/ CVaR"],
-        default=["MPT (مارکوویتز کلاسیک)"]
-    )
-
-    prices_df = pd.DataFrame()
-    asset_names = []
-    insured_assets = {}
-    for name, df in all_assets:
-        df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
-        df['Price'] = pd.to_numeric(df['Price'], errors='coerce')
-        df = df.dropna(subset=['Date', 'Price'])
-        df = df[['Date', 'Price']].set_index('Date')
-        df.columns = [name]
-        prices_df = df if prices_df.empty else prices_df.join(df, how='inner')
-        asset_names.append(name)
-
-        # ---------- تنظیمات بیمه برای هر دارایی ----------
-        st.sidebar.markdown(f"---\n### ⚙️ تنظیمات بیمه برای دارایی: `{name}`")
-        insured = st.sidebar.checkbox(f"📌 فعال‌سازی بیمه برای {name}", key=f"insured_{name}")
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("### ⚙️ تنظیمات بیمه برای هر دارایی")
+    for name, _ in all_assets:
+        insured = st.sidebar.checkbox(f"فعالسازی بیمه برای {name}", key=f"insured_{name}")
         if insured:
             loss_percent = st.sidebar.number_input(f"📉 درصد ضرر معامله پوت برای {name}", 0.0, 100.0, 30.0, step=0.01, key=f"loss_{name}")
             strike = st.sidebar.number_input(f"🎯 قیمت اعمال پوت برای {name}", 0.0, 1e6, 100.0, step=0.01, key=f"strike_{name}")
@@ -151,6 +136,24 @@ if all_assets:
                 'spot': spot_price,
                 'base': asset_amount
             }
+
+if all_assets:
+    show_methods = st.multiselect(
+        "کدام سبک بهینه‌سازی پرتفو نمایش داده شود؟",
+        ["MPT (مارکوویتز کلاسیک)", "مونت‌کارلو/ CVaR"],
+        default=["MPT (مارکوویتز کلاسیک)"]
+    )
+
+    prices_df = pd.DataFrame()
+    asset_names = []
+    for name, df in all_assets:
+        df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
+        df['Price'] = pd.to_numeric(df['Price'], errors='coerce')
+        df = df.dropna(subset=['Date', 'Price'])
+        df = df[['Date', 'Price']].set_index('Date')
+        df.columns = [name]
+        prices_df = df if prices_df.empty else prices_df.join(df, how='inner')
+        asset_names.append(name)
 
     if prices_df.empty:
         st.error("❌ داده‌ی معتبری برای تحلیل یافت نشد.")
