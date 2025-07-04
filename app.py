@@ -6,6 +6,7 @@ import plotly.express as px
 import yfinance as yf
 
 # --------- تابع رفع خطا و تبدیل داده yfinance به DataFrame مناسب ---------
+@st.cache_data
 def get_price_dataframe_from_yf(data, ticker):
     try:
         if isinstance(data.columns, pd.MultiIndex):
@@ -18,6 +19,57 @@ def get_price_dataframe_from_yf(data, ticker):
     except Exception as e:
         return None, f"خطا در پردازش داده {ticker}: {e}"
 # -------------------------------------------------------------------------
+
+# --------- تابع کش شده خواندن فایل CSV ---------
+@st.cache_data
+def read_csv_file(file):
+    try:
+        df = pd.read_csv(file)
+        df.columns = df.columns.str.strip().str.lower().str.replace('%', '')
+        df.rename(columns={'date': 'Date', 'price': 'Price'}, inplace=True)
+        return df
+    except Exception as e:
+        st.error(f"خطا در خواندن فایل {file.name}: {e}")
+        return None
+
+# --------- تابع کش شده شبیه‌سازی پرتفو (Monte Carlo Simulation) ---------
+@st.cache_data(show_spinner=False)
+def monte_carlo_sim(mean_returns, cov_matrix, downside, annual_factor, asset_names, insured_assets, 
+                    preference_weights, asset_min_weights, asset_max_weights, rf, user_risk, cvar_alpha, n_portfolios, n_mc):
+    results = np.zeros((5 + len(asset_names), n_portfolios))
+    adjusted_cov = cov_matrix.copy()
+    std_devs = np.sqrt(np.diag(cov_matrix))
+    for i, name in enumerate(asset_names):
+        if name in insured_assets:
+            risk_scale = 1 - insured_assets[name]['loss_percent'] / 100
+            adjusted_cov.iloc[i, :] *= risk_scale
+            adjusted_cov.iloc[:, i] *= risk_scale
+    min_weights_arr = np.array([asset_min_weights.get(name, 0)/100 for name in asset_names])
+    max_weights_arr = np.array([asset_max_weights.get(name, 100)/100 for name in asset_names])
+    np.random.seed(42)
+    for i in range(n_portfolios):
+        weights = np.random.random(len(asset_names)) * preference_weights
+        weights /= np.sum(weights)
+        weights = min_weights_arr + (max_weights_arr - min_weights_arr) * weights
+        weights /= np.sum(weights)
+        if np.sum(min_weights_arr) > 1:
+            weights = min_weights_arr / np.sum(min_weights_arr)
+        port_return = np.dot(weights, mean_returns)
+        port_std = np.sqrt(np.dot(weights.T, np.dot(adjusted_cov, weights)))
+        downside_risk = np.sqrt(np.dot(weights.T, np.dot(downside.cov() * annual_factor, weights)))
+        sharpe_ratio = (port_return - rf/100) / port_std
+        sortino_ratio = (port_return - rf/100) / downside_risk if downside_risk > 0 else np.nan
+        mc_sims = np.random.multivariate_normal(mean_returns/annual_factor, adjusted_cov/annual_factor, n_mc)
+        port_mc_returns = np.dot(mc_sims, weights)
+        VaR = np.percentile(port_mc_returns, (1 - cvar_alpha) * 100)
+        CVaR = port_mc_returns[port_mc_returns <= VaR].mean() if np.any(port_mc_returns <= VaR) else VaR
+        results[0, i] = port_return
+        results[1, i] = port_std
+        results[2, i] = sharpe_ratio
+        results[3, i] = sortino_ratio
+        results[4, i] = -CVaR
+        results[5:, i] = weights
+    return results
 
 # ------------- بخش تست پروفایل ریسک رفتاری (Behavioral Risk Profile) -------------
 st.sidebar.markdown("## 🧠 تست پروفایل ریسک رفتاری")
@@ -92,16 +144,6 @@ with st.sidebar.expander("انجام تست ریسک رفتاری", expanded=Fal
 st.set_page_config(page_title="تحلیل پرتفو با مونت‌کارلو، CVaR و Married Put", layout="wide")
 st.title("📊 ابزار تحلیل پرتفو با روش مونت‌کارلو، CVaR و استراتژی Married Put")
 
-def read_csv_file(file):
-    try:
-        df = pd.read_csv(file)
-        df.columns = df.columns.str.strip().str.lower().str.replace('%', '')
-        df.rename(columns={'date': 'Date', 'price': 'Price'}, inplace=True)
-        return df
-    except Exception as e:
-        st.error(f"خطا در خواندن فایل {file.name}: {e}")
-        return None
-
 st.sidebar.markdown("## تنظیمات کلی 	:gear:")
 with st.sidebar.expander("تنظیمات کلی", expanded=True):
     period = st.selectbox("بازه تحلیل بازده", ['ماهانه', 'سه‌ماهه', 'شش‌ماهه'])
@@ -116,7 +158,6 @@ with st.sidebar.expander("محدودیت وزن دارایی‌ها :lock:", exp
     uploaded_files = st.file_uploader(
         "چند فایل CSV آپلود کنید (هر دارایی یک فایل)", type=['csv'], accept_multiple_files=True, key="uploader"
     )
-    # داده‌های آپلود شده و دانلود شده را با هم ترکیب کن
     all_assets = []
     if uploaded_files:
         for file in uploaded_files:
@@ -233,60 +274,26 @@ if all_assets:
     mean_returns = returns.mean() * annual_factor
     cov_matrix = returns.cov() * annual_factor
     std_devs = np.sqrt(np.diag(cov_matrix))
+    downside = returns.copy()
+    downside[downside > 0] = 0
 
-    adjusted_cov = cov_matrix.copy()
+    # وزن ترجیحی اولیه هر دارایی بر اساس ریسک آن و بیمه
     preference_weights = []
-
     for i, name in enumerate(asset_names):
         if name in insured_assets:
             risk_scale = 1 - insured_assets[name]['loss_percent'] / 100
-            adjusted_cov.iloc[i, :] *= risk_scale
-            adjusted_cov.iloc[:, i] *= risk_scale
             preference_weights.append(1 / (std_devs[i] * risk_scale**0.7))
         else:
             preference_weights.append(1 / std_devs[i])
     preference_weights = np.array(preference_weights)
     preference_weights /= np.sum(preference_weights)
 
-    # شبیه‌سازی مونت‌کارلو با CVaR با رعایت محدودیت‌های وزن
-    n_portfolios = 10000
-    n_mc = 1000
-    results = np.zeros((5 + len(asset_names), n_portfolios))
-    np.random.seed(42)
+    n_portfolios = 2000  # بهینه شده!
+    n_mc = 200           # بهینه شده!
 
-    downside = returns.copy()
-    downside[downside > 0] = 0
-
-    min_weights_arr = np.array([asset_min_weights.get(name, 0)/100 for name in asset_names])
-    max_weights_arr = np.array([asset_max_weights.get(name, 100)/100 for name in asset_names])
-
-    for i in range(n_portfolios):
-        # تولید وزن‌های تصادفی در بازه min/max تعریف‌شده
-        weights = np.random.random(len(asset_names)) * preference_weights
-        weights /= np.sum(weights)
-        weights = min_weights_arr + (max_weights_arr - min_weights_arr) * weights
-        weights /= np.sum(weights)  # مجموع ۱ شود
-        # چک: اگر مجموع minهای وارد شده >۱، نرمالایز فقط بر مبنای min نباشد
-        if np.sum(min_weights_arr) > 1:
-            weights = min_weights_arr / np.sum(min_weights_arr)
-        port_return = np.dot(weights, mean_returns)
-        port_std = np.sqrt(np.dot(weights.T, np.dot(adjusted_cov, weights)))
-        downside_risk = np.sqrt(np.dot(weights.T, np.dot(downside.cov() * annual_factor, weights)))
-        sharpe_ratio = (port_return - rf/100) / port_std
-        sortino_ratio = (port_return - rf/100) / downside_risk if downside_risk > 0 else np.nan
-
-        mc_sims = np.random.multivariate_normal(mean_returns/annual_factor, adjusted_cov/annual_factor, n_mc)
-        port_mc_returns = np.dot(mc_sims, weights)
-        VaR = np.percentile(port_mc_returns, (1 - cvar_alpha) * 100)
-        CVaR = port_mc_returns[port_mc_returns <= VaR].mean() if np.any(port_mc_returns <= VaR) else VaR
-
-        results[0, i] = port_return
-        results[1, i] = port_std
-        results[2, i] = sharpe_ratio
-        results[3, i] = sortino_ratio
-        results[4, i] = -CVaR
-        results[5:, i] = weights
-
+    with st.spinner("در حال محاسبه پرتفوها... لطفا کمی صبر کنید"):
+        results = monte_carlo_sim(mean_returns, cov_matrix, downside, annual_factor, asset_names, insured_assets, 
+                                  preference_weights, asset_min_weights, asset_max_weights, rf, user_risk, cvar_alpha, n_portfolios, n_mc)
     best_idx = np.argmin(np.abs(results[1] - user_risk))
     best_return = results[0, best_idx]
     best_risk = results[1, best_idx]
@@ -310,7 +317,6 @@ if all_assets:
     for i, name in enumerate(asset_names):
         st.markdown(f"🔹 وزن {name}: {best_weights[i]*100:.2f}%")
 
-    # Pie Chart سبک مونت‌کارلو
     st.subheader("🥧 نمودار توزیع دارایی‌ها در پرتفو بهینه (مونت‌کارلو)")
     fig_pie_mc = px.pie(
         names=asset_names,
@@ -329,7 +335,7 @@ if all_assets:
     """)
     for i, name in enumerate(asset_names):
         st.markdown(f"🔸 وزن {name}: {best_cvar_weights[i]*100:.2f}%")
-    # Pie Chart سبک CVaR
+
     st.subheader(f"🥧 نمودار توزیع دارایی‌ها در پرتفو بهینه (CVaR {int(cvar_alpha*100)}%)")
     fig_pie_cvar = px.pie(
         names=asset_names,
@@ -405,7 +411,6 @@ if all_assets:
         insured_str = " (بیمه شده)" if name in insured_assets else ""
         st.markdown(f"🔸 **{name}{insured_str}** | نسبت بازده به ریسک: {score:.2f}")
 
-    # Married Put charts
     for name, info in insured_assets.items():
         st.subheader(f"📉 نمودار سود و زیان استراتژی Married Put - {name}")
         x = np.linspace(info['spot'] * 0.5, info['spot'] * 1.5, 200)
@@ -438,7 +443,6 @@ if all_assets:
                                   showlegend=False))
         fig2.update_layout(title='نمودار سود و زیان', xaxis_title='قیمت دارایی در سررسید', yaxis_title='سود/زیان')
         st.plotly_chart(fig2, use_container_width=True)
-
         if st.button(f"📷 ذخیره نمودار Married Put برای {name}"):
             try:
                 img_bytes = fig2.to_image(format="png")
