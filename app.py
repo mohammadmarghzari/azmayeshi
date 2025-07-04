@@ -4,6 +4,30 @@ import numpy as np
 import plotly.graph_objects as go
 import plotly.express as px
 import yfinance as yf
+import base64
+import importlib
+
+# ----- افزودن تصویر بک‌گراند (تصویر شماره 1 را به نام "background.jpg" ذخیره کن) -----
+def get_base64_of_bin_file(bin_file):
+    with open(bin_file, 'rb') as f:
+        data = f.read()
+    return base64.b64encode(data).decode()
+
+img_base64 = get_base64_of_bin_file("background.jpg")  # نام فایل تصویر را درست وارد کن
+
+st.markdown(
+    f"""
+    <style>
+    .stApp {{
+        background-image: url("data:image/jpg;base64,{img_base64}");
+        background-size: cover;
+        background-position: center;
+        background-attachment: fixed;
+    }}
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 
 def get_price_dataframe_from_yf(data, ticker):
     try:
@@ -416,7 +440,6 @@ if all_assets:
     st.plotly_chart(fig_cvar, use_container_width=True)
 
     # --- Married Put charts با راهکار امن ---
-    import importlib
     for name, info in insured_assets.items():
         st.subheader(f"📉 نمودار سود و زیان استراتژی Married Put - {name}")
         x = np.linspace(info['spot'] * 0.5, info['spot'] * 1.5, 200)
