@@ -4,7 +4,6 @@ import numpy as np
 import plotly.graph_objects as go
 import plotly.express as px
 import yfinance as yf
-import importlib
 
 def get_price_dataframe_from_yf(data, ticker):
     try:
@@ -271,7 +270,6 @@ if all_assets:
     best_cvar_cvar = results[4, best_cvar_idx]
     best_cvar_weights = results[5:, best_cvar_idx]
 
-    # ----- 📈 پرتفو بهینه (مونت‌کارلو) -----
     st.subheader("📈 پرتفو بهینه (مونت‌کارلو)")
     st.markdown(f"""
     - ✅ بازده سالانه: **{best_return:.2%}**
@@ -282,7 +280,6 @@ if all_assets:
     for i, name in enumerate(asset_names):
         st.markdown(f"🔹 وزن {name}: {best_weights[i]*100:.2f}%")
 
-    # --- 🥧 نمودار Pie مونت‌کارلو با استایل حرفه‌ای ---
     st.subheader("🥧 نمودار توزیع دارایی‌ها در پرتفو بهینه (مونت‌کارلو)")
     fig_pie_mc = px.pie(
         names=asset_names,
@@ -302,7 +299,6 @@ if all_assets:
     fig_pie_mc.for_each_trace(lambda t: t.update(customdata=[("بیمه شده" if nm in insured_assets else "بدون بیمه") for nm in asset_names]))
     st.plotly_chart(fig_pie_mc, use_container_width=True)
 
-    # --- 🟢 پرتفو بهینه بر اساس CVaR ---
     st.subheader(f"🟢 پرتفو بهینه بر اساس CVaR ({int(cvar_alpha*100)}%)")
     st.markdown(f"""
     - ✅ بازده سالانه: **{best_cvar_return:.2%}**
@@ -312,7 +308,6 @@ if all_assets:
     for i, name in enumerate(asset_names):
         st.markdown(f"🔸 وزن {name}: {best_cvar_weights[i]*100:.2f}%")
 
-    # --- 🥧 نمودار Pie CVaR با استایل حرفه‌ای ---
     st.subheader(f"🥧 نمودار توزیع دارایی‌ها در پرتفو بهینه (CVaR {int(cvar_alpha*100)}%)")
     fig_pie_cvar = px.pie(
         names=asset_names,
@@ -332,7 +327,6 @@ if all_assets:
     fig_pie_cvar.for_each_trace(lambda t: t.update(customdata=[("بیمه شده" if nm in insured_assets else "بدون بیمه") for nm in asset_names]))
     st.plotly_chart(fig_pie_cvar, use_container_width=True)
 
-    # --- 📋 جدول مقایسه وزن دارایی‌ها (مونت‌کارلو و CVaR) ---
     st.subheader("📋 جدول مقایسه وزن دارایی‌ها (مونت‌کارلو و CVaR)")
     compare_df = pd.DataFrame({
         'دارایی': asset_names,
@@ -342,7 +336,6 @@ if all_assets:
     compare_df['اختلاف وزن (%)'] = compare_df[f'وزن CVaR ({int(cvar_alpha*100)}%) (%)'] - compare_df['وزن مونت‌کارلو (%)']
     st.dataframe(compare_df.set_index('دارایی'), use_container_width=True, height=300)
 
-    # --- نمودار میله‌ای مقایسه وزن‌ها با رنگ سفارشی ---
     st.subheader("📊 مقایسه وزن دارایی‌ها در پرتفوهای مختلف")
     colors_mc = ['#2ecc71' if name in insured_assets else '#3498db' for name in asset_names]
     colors_cvar = ['#f39c12' if name in insured_assets else '#e74c3c' for name in asset_names]
@@ -422,7 +415,8 @@ if all_assets:
     )
     st.plotly_chart(fig_cvar, use_container_width=True)
 
-    # --- Married Put charts با annotation و دکمه دانلود ---
+    # --- Married Put charts با راهکار امن ---
+    import importlib
     for name, info in insured_assets.items():
         st.subheader(f"📉 نمودار سود و زیان استراتژی Married Put - {name}")
         x = np.linspace(info['spot'] * 0.5, info['spot'] * 1.5, 200)
@@ -456,9 +450,18 @@ if all_assets:
         fig2.update_layout(title='نمودار سود و زیان (Married Put)', font_family='Vazirmatn',
                            xaxis_title='قیمت دارایی در سررسید', yaxis_title='سود/زیان', title_font_size=20)
         st.plotly_chart(fig2, use_container_width=True)
-        st.download_button("دانلود نمودار Married Put", fig2.to_image(format="png"), file_name=f"married_put_{name}.png")
+        # دانلود فقط اگر kaleido موجود و فعال باشد
+        fig_bytes = None
+        if importlib.util.find_spec("kaleido") is not None:
+            try:
+                fig_bytes = fig2.to_image(format="png")
+            except Exception as e:
+                fig_bytes = None
+        if fig_bytes is not None:
+            st.download_button("دانلود نمودار Married Put", fig_bytes, file_name=f"married_put_{name}.png")
+        else:
+            st.info("برای ذخیره نمودار، از قابلیت اسکرین‌شات استفاده کنید.")
 
-    # --- پیش‌بینی قیمت و بازده آتی هر دارایی ---
     st.subheader("🔮 پیش‌بینی قیمت و بازده آتی هر دارایی")
     future_months = 6 if period == 'شش‌ماهه' else (3 if period == 'سه‌ماهه' else 1)
     for i, name in enumerate(asset_names):
