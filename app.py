@@ -4,6 +4,7 @@ import numpy as np
 import plotly.graph_objects as go
 import plotly.express as px
 import yfinance as yf
+import importlib
 
 def get_price_dataframe_from_yf(data, ticker):
     try:
