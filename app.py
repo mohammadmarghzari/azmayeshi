@@ -352,48 +352,73 @@ if all_assets:
                         xaxis_title='دارایی', yaxis_title='وزن (%)', legend_title='سبک', title_font_size=20)
     st.plotly_chart(fig_w, use_container_width=True)
 
-    # --- 🌈 نمودار مرز کارا با خطوط هدف و annotation ---
-    st.subheader("🌈 نمودار مرز کارا")
-    fig = px.scatter(
-        x=results[1]*100,
-        y=results[0]*100,
-        color=results[2],
-        labels={'x': 'ریسک (%)', 'y': 'بازده (%)'},
-        title='پرتفوهای شبیه‌سازی‌شده (مونت‌کارلو) و مرز CVaR',
-        color_continuous_scale='Viridis'
+    # --- 🌈 نمودار مرز کارا برای سبک مونت‌کارلو ---
+    st.subheader("🌈 مرز کارا پرتفوها (سبک مونت‌کارلو)")
+    fig_mc = go.Figure()
+    fig_mc.add_trace(go.Scatter(
+        x=results[1]*100, y=results[0]*100,
+        mode='markers', marker=dict(
+            size=6, color=results[2], colorscale='Viridis', colorbar=dict(title='Sharpe Ratio')
+        ),
+        name="پرتفوهای شبیه‌سازی‌شده", 
+        text=[f"شارپ: {sr:.2f}" for sr in results[2]]
+    ))
+    fig_mc.add_trace(go.Scatter(
+        x=[best_risk*100], y=[best_return*100],
+        mode='markers+text',
+        marker=dict(size=18, color='red', symbol='star'),
+        name="پرتفوی بهینه مونت‌کارلو",
+        text=["⭐ بهینه MC"], textposition="top center"
+    ))
+    fig_mc.add_shape(type="line", x0=user_risk*100, y0=min(results[0]*100), x1=user_risk*100, y1=max(results[0]*100),
+                     line=dict(color="RoyalBlue", width=2, dash="dash"), name="ریسک هدف")
+    fig_mc.update_layout(
+        title="مرز کارا در سبک مونت‌کارلو",
+        xaxis_title="ریسک سالانه (%)",
+        yaxis_title="بازده سالانه (%)",
+        font_family="Vazirmatn",
+        legend_title="راهنما",
+        title_font_size=22
     )
-    fig.add_trace(go.Scatter(x=[best_risk*100], y=[best_return*100],
-                             mode='markers+text', marker=dict(size=16, color='red', symbol='star'),
-                             text=["بهینه MC"], textposition="top center", name='پرتفوی بهینه مونت‌کارلو'))
-    fig.add_trace(go.Scatter(x=[best_cvar_risk*100], y=[best_cvar_return*100],
-                             mode='markers+text', marker=dict(size=16, color='orange', symbol='star'),
-                             text=["بهینه CVaR"], textposition="bottom left", name='پرتفوی بهینه CVaR'))
-    # خط ریسک هدف
-    fig.add_shape(type="line", x0=user_risk*100, y0=min(results[0]*100), x1=user_risk*100, y1=max(results[0]*100),
-                  line=dict(color="RoyalBlue", width=2, dash="dash"), name="ریسک هدف")
+    st.plotly_chart(fig_mc, use_container_width=True)
+
+    # --- 🌈 نمودار مرز کارا برای سبک CVaR ---
+    st.subheader(f"🌈 مرز کارا پرتفوها (سبک CVaR {int(cvar_alpha*100)}%)")
+    fig_cvar = go.Figure()
+    fig_cvar.add_trace(go.Scatter(
+        x=results[1]*100, y=results[0]*100,
+        mode='markers',
+        marker=dict(
+            size=6, color=-results[4], colorscale='Blues', colorbar=dict(title=f"CVaR ({int(cvar_alpha*100)}%)")
+        ),
+        name="پرتفوهای شبیه‌سازی‌شده",
+        text=[f"CVaR: {cvar:.2%}" for cvar in -results[4]]
+    ))
+    fig_cvar.add_trace(go.Scatter(
+        x=[best_cvar_risk*100], y=[best_cvar_return*100],
+        mode='markers+text',
+        marker=dict(size=18, color='orange', symbol='star'),
+        name="پرتفوی بهینه CVaR",
+        text=["⭐ بهینه CVaR"], textposition="top center"
+    ))
+    fig_cvar.add_shape(type="line", x0=user_risk*100, y0=min(results[0]*100), x1=user_risk*100, y1=max(results[0]*100),
+                      line=dict(color="RoyalBlue", width=2, dash="dash"), name="ریسک هدف")
     cvar_sorted_idx = np.argsort(results[4])
-    fig.add_trace(go.Scatter(
+    fig_cvar.add_trace(go.Scatter(
         x=results[1, cvar_sorted_idx]*100,
         y=results[0, cvar_sorted_idx]*100,
         mode='lines',
         line=dict(color='orange', dash='dot'),
         name='مرز کارا (CVaR)'
     ))
-    fig.update_layout(font_family="Vazirmatn", title_font_size=20)
-    st.plotly_chart(fig, use_container_width=True)
-
-    # --- 🔵 نمودار بازده- CVaR برای پرتفوها ---
-    st.subheader("🔵 نمودار بازده- CVaR برای پرتفوها")
-    fig_cvar = px.scatter(
-        x=results[4], y=results[0],
-        labels={'x': f'CVaR ({int(cvar_alpha*100)}%)', 'y': 'بازده'},
-        title='پرتفوها بر اساس بازده و CVaR',
-        color=results[1], color_continuous_scale='Blues'
+    fig_cvar.update_layout(
+        title=f"مرز کارا در سبک CVaR ({int(cvar_alpha*100)}%)",
+        xaxis_title="ریسک سالانه (%)",
+        yaxis_title="بازده سالانه (%)",
+        font_family="Vazirmatn",
+        legend_title="راهنما",
+        title_font_size=22
     )
-    fig_cvar.add_trace(go.Scatter(x=[best_cvar_cvar], y=[best_cvar_return],
-                                  mode='markers+text', marker=dict(size=16, color='red', symbol='star'),
-                                  text=["بهینه CVaR"], textposition="top center", name='پرتفوی بهینه CVaR'))
-    fig_cvar.update_layout(font_family="Vazirmatn", title_font_size=20)
     st.plotly_chart(fig_cvar, use_container_width=True)
 
     # --- Married Put charts با annotation و دکمه دانلود ---
