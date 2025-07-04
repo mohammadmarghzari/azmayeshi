@@ -18,7 +18,6 @@ def get_price_dataframe_from_yf(data, ticker):
         return df, None
     except Exception as e:
         return None, f"خطا در پردازش داده {ticker}: {e}"
-# -------------------------------------------------------------------------
 
 # --------- تابع کش شده خواندن فایل CSV ---------
 @st.cache_data
@@ -71,9 +70,9 @@ def monte_carlo_sim(mean_returns, cov_matrix, downside, annual_factor, asset_nam
         results[5:, i] = weights
     return results
 
-# ------------- بخش تست پروفایل ریسک رفتاری (Behavioral Risk Profile) -------------
+# ==================== تست ریسک رفتاری ====================
 st.sidebar.markdown("## 🧠 تست پروفایل ریسک رفتاری")
-with st.sidebar.expander("انجام تست ریسک رفتاری", expanded=False):
+with st.sidebar.expander("انجام تست ریسک رفتاری", expanded=True):
     st.write("به چند سؤال رفتاری پاسخ دهید تا پروفایل ریسک شما مشخص شود:")
 
     q1 = st.radio(
@@ -115,7 +114,7 @@ with st.sidebar.expander("انجام تست ریسک رفتاری", expanded=Fal
         "با تحلیل دوباره وارد شدم": 3
     }
 
-    if st.button("ثبت نتیجه تست ریسک رفتاری"):
+    if st.button("ثبت نتیجه تست ریسک رفتاری", key="submit_risk_test"):
         risk_score = q1_map[q1] + q2_map[q2] + q3_map[q3] + q4_map[q4]
         if risk_score <= 6:
             risk_profile = "محافظه‌کار (Conservative)"
@@ -134,13 +133,13 @@ with st.sidebar.expander("انجام تست ریسک رفتاری", expanded=Fal
         st.info(risk_desc)
         st.session_state["risk_profile"] = risk_profile
         st.session_state["risk_value"] = risk_value
-    else:
-        # مقدار پیش‌فرض برای زمانی که هنوز تست کامل نشده
-        if "risk_profile" not in st.session_state:
-            st.session_state["risk_profile"] = "متعادل (Moderate)"
-            st.session_state["risk_value"] = 0.25
-# -------------------------------------------------------------------------
 
+# شرط نمایش ابزارهای بعدی فقط زمانی که تست انجام شده:
+if "risk_profile" not in st.session_state or "risk_value" not in st.session_state:
+    st.warning("⚠️ لطفاً ابتدا تست ریسک رفتاری را کامل کنید تا دیگر ابزارها در دسترس قرار گیرند.")
+    st.stop()
+
+# ==================== ادامه ابزار ====================
 st.set_page_config(page_title="تحلیل پرتفو با مونت‌کارلو، CVaR و Married Put", layout="wide")
 st.title("📊 ابزار تحلیل پرتفو با روش مونت‌کارلو، CVaR و استراتژی Married Put")
 
