@@ -10,30 +10,18 @@ from arch import arch_model
 st.sidebar.markdown("## 🧠 تست پروفایل ریسک رفتاری")
 with st.sidebar.expander("انجام تست ریسک رفتاری", expanded=True):
     st.write("به چند سؤال رفتاری پاسخ دهید تا پروفایل ریسک شما مشخص شود:")
-    q1 = st.radio(
-        "اگر ارزش پرتفو شما به طور موقت ۱۵٪ کاهش یابد، چه کار می‌کنید؟",
-        ["سریع می‌فروشم", "نگه می‌دارم", "خرید می‌کنم"], key="risk_q1"
-    )
-    q2 = st.radio(
-        "در یک سرمایه‌گذاری پرریسک با بازده بالا، چه احساسی دارید؟",
-        ["نگران", "بی‌تفاوت", "هیجان‌زده"], key="risk_q2"
-    )
-    q3 = st.radio(
-        "کدام جمله به شما نزدیک‌تر است؟",
-        [
-            "ترجیح می‌دهم سود کم ولی قطعی داشته باشم", 
-            "سود متوسط ولی با کمی ریسک را می‌پذیرم", 
-            "پتانسیل سود بالا مهم‌تر از ریسک است"
-        ], key="risk_q3"
-    )
-    q4 = st.radio(
-        "در گذشته اگر ضرر قابل توجهی کردید، چه واکنشی داشتید؟",
-        [
-            "کاملاً عقب نشینی کردم", 
-            "تحمل کردم و صبر کردم", 
-            "با تحلیل دوباره وارد شدم"
-        ], key="risk_q4"
-    )
+    q1 = st.radio("اگر ارزش پرتفو شما به طور موقت ۱۵٪ کاهش یابد، چه کار می‌کنید؟", ["سریع می‌فروشم", "نگه می‌دارم", "خرید می‌کنم"], key="risk_q1")
+    q2 = st.radio("در یک سرمایه‌گذاری پرریسک با بازده بالا، چه احساسی دارید؟", ["نگران", "بی‌تفاوت", "هیجان‌زده"], key="risk_q2")
+    q3 = st.radio("کدام جمله به شما نزدیک‌تر است؟", [
+        "ترجیح می‌دهم سود کم ولی قطعی داشته باشم", 
+        "سود متوسط ولی با کمی ریسک را می‌پذیرم", 
+        "پتانسیل سود بالا مهم‌تر از ریسک است"
+    ], key="risk_q3")
+    q4 = st.radio("در گذشته اگر ضرر قابل توجهی کردید، چه واکنشی داشتید؟", [
+        "کاملاً عقب نشینی کردم", 
+        "تحمل کردم و صبر کردم", 
+        "با تحلیل دوباره وارد شدم"
+    ], key="risk_q4")
     q1_map = {"سریع می‌فروشم": 1, "نگه می‌دارم": 2, "خرید می‌کنم": 3}
     q2_map = {"نگران": 1, "بی‌تفاوت": 2, "هیجان‌زده": 3}
     q3_map = {
@@ -71,8 +59,8 @@ if "risk_profile" not in st.session_state or "risk_value" not in st.session_stat
     st.warning("⚠️ لطفاً ابتدا تست ریسک رفتاری را کامل کنید تا دیگر ابزارها در دسترس قرار گیرند.")
     st.stop()
 
-st.set_page_config(page_title="تحلیل پرتفو با مونت‌کارلو، CVaR و پیش‌بینی حرفه‌ای", layout="wide")
-st.title("📊 ابزار تحلیل پرتفو با روش‌های بهینه‌سازی و پیش‌بینی حرفه‌ای")
+st.set_page_config(page_title="تحلیل پرتفو با بیمه، مونت‌کارلو، CVaR و پیش‌بینی حرفه‌ای", layout="wide")
+st.title("📊 ابزار تحلیل پرتفو با روش‌های بهینه‌سازی، بیمه و پیش‌بینی حرفه‌ای")
 
 st.sidebar.markdown("## تنظیمات کلی 	:gear:")
 with st.sidebar.expander("تنظیمات کلی", expanded=True):
@@ -135,6 +123,7 @@ if all_assets:
 
     prices_df = pd.DataFrame()
     asset_names = []
+    insured_assets = {}
     for name, df in all_assets:
         df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
         df['Price'] = pd.to_numeric(df['Price'], errors='coerce')
@@ -143,6 +132,25 @@ if all_assets:
         df.columns = [name]
         prices_df = df if prices_df.empty else prices_df.join(df, how='inner')
         asset_names.append(name)
+
+        # ---------- تنظیمات بیمه برای هر دارایی ----------
+        st.sidebar.markdown(f"---\n### ⚙️ تنظیمات بیمه برای دارایی: `{name}`")
+        insured = st.sidebar.checkbox(f"📌 فعال‌سازی بیمه برای {name}", key=f"insured_{name}")
+        if insured:
+            loss_percent = st.sidebar.number_input(f"📉 درصد ضرر معامله پوت برای {name}", 0.0, 100.0, 30.0, step=0.01, key=f"loss_{name}")
+            strike = st.sidebar.number_input(f"🎯 قیمت اعمال پوت برای {name}", 0.0, 1e6, 100.0, step=0.01, key=f"strike_{name}")
+            premium = st.sidebar.number_input(f"💰 قیمت قرارداد پوت برای {name}", 0.0, 1e6, 5.0, step=0.01, key=f"premium_{name}")
+            amount = st.sidebar.number_input(f"📦 مقدار قرارداد برای {name}", 0.0, 1e6, 1.0, step=0.01, key=f"amount_{name}")
+            spot_price = st.sidebar.number_input(f"📌 قیمت فعلی دارایی پایه {name}", 0.0, 1e6, 100.0, step=0.01, key=f"spot_{name}")
+            asset_amount = st.sidebar.number_input(f"📦 مقدار دارایی پایه {name}", 0.0, 1e6, 1.0, step=0.01, key=f"base_{name}")
+            insured_assets[name] = {
+                'loss_percent': loss_percent,
+                'strike': strike,
+                'premium': premium,
+                'amount': amount,
+                'spot': spot_price,
+                'base': asset_amount
+            }
 
     if prices_df.empty:
         st.error("❌ داده‌ی معتبری برای تحلیل یافت نشد.")
@@ -262,6 +270,35 @@ if all_assets:
         fig_pie_cvar.update_layout(title=f"توزیع وزنی دارایی‌ها (CVaR {int(cvar_alpha*100)}%)")
         st.plotly_chart(fig_pie_cvar, use_container_width=True)
 
+    # ----------- Married Put (بیمه) برای دارایی‌های انتخاب‌شده -----------
+    for name, info in insured_assets.items():
+        st.subheader(f"📉 نمودار سود و زیان استراتژی Married Put - {name}")
+        x = np.linspace(info['spot'] * 0.5, info['spot'] * 1.5, 200)
+        asset_pnl = (x - info['spot']) * info['base']
+        put_pnl = np.where(x < info['strike'], (info['strike'] - x) * info['amount'], 0) - info['premium'] * info['amount']
+        total_pnl = asset_pnl + put_pnl
+
+        fig2 = go.Figure()
+        fig2.add_trace(go.Scatter(
+            x=x[total_pnl>=0], y=total_pnl[total_pnl>=0], mode='lines', name='سود', line=dict(color='green', width=3)
+        ))
+        fig2.add_trace(go.Scatter(
+            x=x[total_pnl<0], y=total_pnl[total_pnl<0], mode='lines', name='زیان', line=dict(color='red', width=3)
+        ))
+        fig2.add_trace(go.Scatter(
+            x=x, y=asset_pnl, mode='lines', name='دارایی پایه', line=dict(dash='dot', color='gray')
+        ))
+        fig2.add_trace(go.Scatter(
+            x=x, y=put_pnl, mode='lines', name='پوت', line=dict(dash='dot', color='blue')
+        ))
+        zero_crossings = np.where(np.diff(np.sign(total_pnl)))[0]
+        if len(zero_crossings):
+            breakeven_x = x[zero_crossings[0]]
+            fig2.add_trace(go.Scatter(x=[breakeven_x], y=[0], mode='markers+text', marker=dict(color='orange', size=10),
+                                      text=["سر به سر"], textposition="bottom center", name='سر به سر'))
+        fig2.update_layout(title='نمودار سود و زیان Married Put', xaxis_title='قیمت دارایی در سررسید', yaxis_title='سود/زیان')
+        st.plotly_chart(fig2, use_container_width=True)
+
     # ----------- پیش‌بینی حرفه‌ای قیمت با ARIMA و GARCH -----------
     st.subheader("🔮 پیش‌بینی حرفه‌ای قیمت و بازده آتی هر دارایی (ARIMA و GARCH)")
     future_periods = 30
@@ -314,5 +351,6 @@ if all_assets:
             garch_return = (garch_last_pred - last_actual) / last_actual
             st.markdown(f"🌪️ **قیمت سناریوی GARCH ({future_periods} روز):** {garch_last_pred:.2f}")
             st.markdown(f"🌪️ **بازده سناریوی GARCH:** {garch_return:.2%}")
+
 else:
     st.warning("⚠️ لطفاً فایل‌های CSV شامل ستون‌های Date و Price را آپلود کنید یا داده آنلاین وارد نمایید.")
