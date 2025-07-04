@@ -120,22 +120,33 @@ if all_assets:
     st.sidebar.markdown("---")
     st.sidebar.markdown("### ⚙️ تنظیمات بیمه برای هر دارایی")
     for name, _ in all_assets:
-        insured = st.sidebar.checkbox(f"فعالسازی بیمه برای {name}", key=f"insured_{name}")
+        insured_key = f"insured_{name}"
+        insured = st.sidebar.checkbox(f"فعالسازی بیمه برای {name}", key=insured_key)
         if insured:
-            loss_percent = st.sidebar.number_input(f"📉 درصد ضرر معامله پوت برای {name}", 0.0, 100.0, 30.0, step=0.01, key=f"loss_{name}")
-            strike = st.sidebar.number_input(f"🎯 قیمت اعمال پوت برای {name}", 0.0, 1e6, 100.0, step=0.01, key=f"strike_{name}")
-            premium = st.sidebar.number_input(f"💰 قیمت قرارداد پوت برای {name}", 0.0, 1e6, 5.0, step=0.01, key=f"premium_{name}")
-            amount = st.sidebar.number_input(f"📦 مقدار قرارداد برای {name}", 0.0, 1e6, 1.0, step=0.01, key=f"amount_{name}")
-            spot_price = st.sidebar.number_input(f"📌 قیمت فعلی دارایی پایه {name}", 0.0, 1e6, 100.0, step=0.01, key=f"spot_{name}")
-            asset_amount = st.sidebar.number_input(f"📦 مقدار دارایی پایه {name}", 0.0, 1e6, 1.0, step=0.01, key=f"base_{name}")
-            insured_assets[name] = {
-                'loss_percent': loss_percent,
-                'strike': strike,
-                'premium': premium,
-                'amount': amount,
-                'spot': spot_price,
-                'base': asset_amount
+            loss_key = f"loss_{name}"
+            strike_key = f"strike_{name}"
+            premium_key = f"premium_{name}"
+            amount_key = f"amount_{name}"
+            spot_key = f"spot_{name}"
+            base_key = f"base_{name}"
+
+            loss_percent = st.sidebar.number_input("📉 درصد ضرر معامله پوت", 0.0, 100.0, 30.0, step=0.01, key=loss_key)
+            strike = st.sidebar.number_input("🎯 قیمت اعمال پوت", 0.0, 1e6, 100.0, step=0.01, key=strike_key)
+            premium = st.sidebar.number_input("💰 قیمت قرارداد پوت", 0.0, 1e6, 5.0, step=0.01, key=premium_key)
+            amount = st.sidebar.number_input("📦 مقدار قرارداد", 0.0, 1e6, 1.0, step=0.01, key=amount_key)
+            spot_price = st.sidebar.number_input("📌 قیمت فعلی دارایی پایه", 0.0, 1e6, 100.0, step=0.01, key=spot_key)
+            asset_amount = st.sidebar.number_input("📦 مقدار دارایی پایه", 0.0, 1e6, 1.0, step=0.01, key=base_key)
+
+            st.session_state[f"insured_data_{name}"] = {
+                "loss_percent": loss_percent,
+                "strike": strike,
+                "premium": premium,
+                "amount": amount,
+                "spot": spot_price,
+                "base": asset_amount
             }
+        else:
+            st.session_state[f"insured_data_{name}"] = None
 
 if all_assets:
     show_methods = st.multiselect(
@@ -274,33 +285,35 @@ if all_assets:
         st.plotly_chart(fig_pie_cvar, use_container_width=True)
 
     # ----------- Married Put (بیمه) برای دارایی‌های انتخاب‌شده -----------
-    for name, info in insured_assets.items():
-        st.subheader(f"📉 نمودار سود و زیان استراتژی Married Put - {name}")
-        x = np.linspace(info['spot'] * 0.5, info['spot'] * 1.5, 200)
-        asset_pnl = (x - info['spot']) * info['base']
-        put_pnl = np.where(x < info['strike'], (info['strike'] - x) * info['amount'], 0) - info['premium'] * info['amount']
-        total_pnl = asset_pnl + put_pnl
+    for name in asset_names:
+        insured_data = st.session_state.get(f"insured_data_{name}")
+        if insured_data:
+            st.subheader(f"📉 نمودار سود و زیان استراتژی Married Put - {name}")
+            x = np.linspace(insured_data['spot'] * 0.5, insured_data['spot'] * 1.5, 200)
+            asset_pnl = (x - insured_data['spot']) * insured_data['base']
+            put_pnl = np.where(x < insured_data['strike'], (insured_data['strike'] - x) * insured_data['amount'], 0) - insured_data['premium'] * insured_data['amount']
+            total_pnl = asset_pnl + put_pnl
 
-        fig2 = go.Figure()
-        fig2.add_trace(go.Scatter(
-            x=x[total_pnl>=0], y=total_pnl[total_pnl>=0], mode='lines', name='سود', line=dict(color='green', width=3)
-        ))
-        fig2.add_trace(go.Scatter(
-            x=x[total_pnl<0], y=total_pnl[total_pnl<0], mode='lines', name='زیان', line=dict(color='red', width=3)
-        ))
-        fig2.add_trace(go.Scatter(
-            x=x, y=asset_pnl, mode='lines', name='دارایی پایه', line=dict(dash='dot', color='gray')
-        ))
-        fig2.add_trace(go.Scatter(
-            x=x, y=put_pnl, mode='lines', name='پوت', line=dict(dash='dot', color='blue')
-        ))
-        zero_crossings = np.where(np.diff(np.sign(total_pnl)))[0]
-        if len(zero_crossings):
-            breakeven_x = x[zero_crossings[0]]
-            fig2.add_trace(go.Scatter(x=[breakeven_x], y=[0], mode='markers+text', marker=dict(color='orange', size=10),
-                                      text=["سر به سر"], textposition="bottom center", name='سر به سر'))
-        fig2.update_layout(title='نمودار سود و زیان Married Put', xaxis_title='قیمت دارایی در سررسید', yaxis_title='سود/زیان')
-        st.plotly_chart(fig2, use_container_width=True)
+            fig2 = go.Figure()
+            fig2.add_trace(go.Scatter(
+                x=x[total_pnl>=0], y=total_pnl[total_pnl>=0], mode='lines', name='سود', line=dict(color='green', width=3)
+            ))
+            fig2.add_trace(go.Scatter(
+                x=x[total_pnl<0], y=total_pnl[total_pnl<0], mode='lines', name='زیان', line=dict(color='red', width=3)
+            ))
+            fig2.add_trace(go.Scatter(
+                x=x, y=asset_pnl, mode='lines', name='دارایی پایه', line=dict(dash='dot', color='gray')
+            ))
+            fig2.add_trace(go.Scatter(
+                x=x, y=put_pnl, mode='lines', name='پوت', line=dict(dash='dot', color='blue')
+            ))
+            zero_crossings = np.where(np.diff(np.sign(total_pnl)))[0]
+            if len(zero_crossings):
+                breakeven_x = x[zero_crossings[0]]
+                fig2.add_trace(go.Scatter(x=[breakeven_x], y=[0], mode='markers+text', marker=dict(color='orange', size=10),
+                                          text=["سر به سر"], textposition="bottom center", name='سر به سر'))
+            fig2.update_layout(title='نمودار سود و زیان Married Put', xaxis_title='قیمت دارایی در سررسید', yaxis_title='سود/زیان')
+            st.plotly_chart(fig2, use_container_width=True)
 
     # ----------- پیش‌بینی حرفه‌ای قیمت با ARIMA و GARCH -----------
     st.subheader("🔮 پیش‌بینی حرفه‌ای قیمت و بازده آتی هر دارایی (ARIMA و GARCH)")
