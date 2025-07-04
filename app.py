@@ -1,74 +1,12 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import plotly.express as px
 import plotly.graph_objects as go
 import yfinance as yf
-from scipy.optimize import minimize
+from statsmodels.tsa.arima.model import ARIMA
+from arch import arch_model
 
-@st.cache_data
-def get_price_dataframe_from_yf(data, ticker):
-    try:
-        if isinstance(data.columns, pd.MultiIndex):
-            price_series = data[ticker]['Close']
-        else:
-            price_series = data['Close']
-        df = price_series.reset_index()
-        df.columns = ['Date', 'Price']
-        return df, None
-    except Exception as e:
-        return None, f"خطا در پردازش داده {ticker}: {e}"
-
-@st.cache_data
-def read_csv_file(file):
-    try:
-        df = pd.read_csv(file)
-        df.columns = df.columns.str.strip().str.lower().str.replace('%', '')
-        df.rename(columns={'date': 'Date', 'price': 'Price'}, inplace=True)
-        return df
-    except Exception as e:
-        st.error(f"خطا در خواندن فایل {file.name}: {e}")
-        return None
-
-@st.cache_data(show_spinner=False)
-def monte_carlo_sim(mean_returns, cov_matrix, downside, annual_factor, asset_names, insured_assets, 
-                    preference_weights, asset_min_weights, asset_max_weights, rf, user_risk, cvar_alpha, n_portfolios, n_mc):
-    results = np.zeros((5 + len(asset_names), n_portfolios))
-    adjusted_cov = cov_matrix.copy()
-    std_devs = np.sqrt(np.diag(cov_matrix))
-    for i, name in enumerate(asset_names):
-        if name in insured_assets:
-            risk_scale = 1 - insured_assets[name]['loss_percent'] / 100
-            adjusted_cov.iloc[i, :] *= risk_scale
-            adjusted_cov.iloc[:, i] *= risk_scale
-    min_weights_arr = np.array([asset_min_weights.get(name, 0)/100 for name in asset_names])
-    max_weights_arr = np.array([asset_max_weights.get(name, 100)/100 for name in asset_names])
-    np.random.seed(42)
-    for i in range(n_portfolios):
-        weights = np.random.random(len(asset_names)) * preference_weights
-        weights /= np.sum(weights)
-        weights = min_weights_arr + (max_weights_arr - min_weights_arr) * weights
-        weights /= np.sum(weights)
-        if np.sum(min_weights_arr) > 1:
-            weights = min_weights_arr / np.sum(min_weights_arr)
-        port_return = np.dot(weights, mean_returns)
-        port_std = np.sqrt(np.dot(weights.T, np.dot(adjusted_cov, weights)))
-        downside_risk = np.sqrt(np.dot(weights.T, np.dot(downside.cov() * annual_factor, weights)))
-        sharpe_ratio = (port_return - rf/100) / port_std
-        sortino_ratio = (port_return - rf/100) / downside_risk if downside_risk > 0 else np.nan
-        mc_sims = np.random.multivariate_normal(mean_returns/annual_factor, adjusted_cov/annual_factor, n_mc)
-        port_mc_returns = np.dot(mc_sims, weights)
-        VaR = np.percentile(port_mc_returns, (1 - cvar_alpha) * 100)
-        CVaR = port_mc_returns[port_mc_returns <= VaR].mean() if np.any(port_mc_returns <= VaR) else VaR
-        results[0, i] = port_return
-        results[1, i] = port_std
-        results[2, i] = sharpe_ratio
-        results[3, i] = sortino_ratio
-        results[4, i] = -CVaR
-        results[5:, i] = weights
-    return results
-
-# === Behavioral Risk Profile Test ===
+# ==== Behavioral Risk Profile Test ====
 st.sidebar.markdown("## 🧠 تست پروفایل ریسک رفتاری")
 with st.sidebar.expander("انجام تست ریسک رفتاری", expanded=True):
     st.write("به چند سؤال رفتاری پاسخ دهید تا پروفایل ریسک شما مشخص شود:")
@@ -133,8 +71,8 @@ if "risk_profile" not in st.session_state or "risk_value" not in st.session_stat
     st.warning("⚠️ لطفاً ابتدا تست ریسک رفتاری را کامل کنید تا دیگر ابزارها در دسترس قرار گیرند.")
     st.stop()
 
-st.set_page_config(page_title="تحلیل پرتفو با مونت‌کارلو، CVaR و Married Put", layout="wide")
-st.title("📊 ابزار تحلیل پرتفو با روش مونت‌کارلو، CVaR و استراتژی Married Put")
+st.set_page_config(page_title="تحلیل پرتفو با مونت‌کارلو، CVaR و پیش‌بینی حرفه‌ای", layout="wide")
+st.title("📊 ابزار تحلیل پرتفو با روش‌های بهینه‌سازی و پیش‌بینی حرفه‌ای")
 
 st.sidebar.markdown("## تنظیمات کلی 	:gear:")
 with st.sidebar.expander("تنظیمات کلی", expanded=True):
@@ -145,18 +83,17 @@ with st.sidebar.expander("تنظیمات کلی", expanded=True):
     total_capital = st.number_input("سرمایه کل (دلار)", min_value=0.0, value=100000.0, step=100.0)
     register_btn = st.button("ثبت")
 
-with st.sidebar.expander("محدودیت وزن دارایی‌ها :lock:", expanded=True):
-    st.markdown("##### محدودیت وزن هر دارایی")
+with st.sidebar.expander("ورود داده دارایی‌ها", expanded=True):
     uploaded_files = st.file_uploader(
-        "چند فایل CSV آپلود کنید (هر دارایی یک فایل)", type=['csv'], accept_multiple_files=True, key="uploader"
+        "چند فایل CSV آپلود کنید (هر دارایی یک فایل، دو ستون Date و Price)", type=['csv'], accept_multiple_files=True, key="uploader"
     )
     all_assets = []
     if uploaded_files:
         for file in uploaded_files:
-            all_assets.append((file.name.split('.')[0], read_csv_file(file)))
-
-    if "downloaded_dfs" not in st.session_state:
-        st.session_state["downloaded_dfs"] = []
+            df = pd.read_csv(file)
+            df.columns = df.columns.str.strip().str.lower()
+            if set(['date', 'price']).issubset(df.columns):
+                all_assets.append((file.name.split('.')[0], df.rename(columns={'date':'Date','price':'Price'})))
 
     with st.expander("دریافت داده آنلاین 📥"):
         st.markdown("""
@@ -177,41 +114,18 @@ with st.sidebar.expander("محدودیت وزن دارایی‌ها :lock:", exp
             if data.empty:
                 st.error("داده‌ای دریافت نشد!")
             else:
-                new_downloaded = []
                 for t in tickers:
-                    df, err = get_price_dataframe_from_yf(data, t)
-                    if df is not None:
-                        df['Date'] = pd.to_datetime(df['Date'])
-                        new_downloaded.append((t, df))
-                        st.success(f"داده {t} با موفقیت دانلود شد.")
+                    if isinstance(data.columns, pd.MultiIndex):
+                        price_series = data[t]['Close']
                     else:
-                        st.error(f"{err}")
-                st.session_state["downloaded_dfs"].extend(new_downloaded)
+                        price_series = data['Close']
+                    df = price_series.reset_index()
+                    df.columns = ['Date', 'Price']
+                    all_assets.append((t, df))
+                    st.success(f"داده {t} با موفقیت دانلود شد.")
         except Exception as ex:
             st.error(f"خطا در دریافت داده: {ex}")
 
-    if st.session_state.get("downloaded_dfs"):
-        all_assets.extend(st.session_state["downloaded_dfs"])
-
-    asset_min_weights = {}
-    asset_max_weights = {}
-    for name, df in all_assets:
-        if df is None:
-            continue
-        asset_min_weights[name] = st.number_input(
-            f"حداقل وزن {name}", min_value=0.0, max_value=100.0, value=0.0, step=1.0, key=f"min_weight_{name}"
-        )
-        asset_max_weights[name] = st.number_input(
-            f"حداکثر وزن {name}", min_value=0.0, max_value=100.0, value=100.0, step=1.0, key=f"max_weight_{name}"
-        )
-
-default_risk = st.session_state.get("risk_value", 0.25)
-resample_rule = {'ماهانه': 'M', 'سه‌ماهه': 'Q', 'شش‌ماهه': '2Q'}[period]
-annual_factor = {'ماهانه': 12, 'سه‌ماهه': 4, 'شش‌ماهه': 2}[period]
-user_risk = st.sidebar.slider("ریسک هدف پرتفو (انحراف معیار سالانه)", 0.01, 1.0, float(default_risk), 0.01)
-cvar_alpha = st.sidebar.slider("سطح اطمینان CVaR", 0.80, 0.99, 0.95, 0.01)
-
-# ---------- انتخاب سبک بهینه‌سازی توسط کاربر ----------
 if all_assets:
     show_methods = st.multiselect(
         "کدام سبک بهینه‌سازی پرتفو نمایش داده شود؟",
@@ -221,43 +135,14 @@ if all_assets:
 
     prices_df = pd.DataFrame()
     asset_names = []
-    insured_assets = {}
-
     for name, df in all_assets:
-        if df is None:
-            continue
-
-        if 'Date' not in df.columns or 'Price' not in df.columns:
-            st.warning(f"فایل {name} باید دارای ستون‌های 'Date' و 'Price' باشد.")
-            continue
-
         df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
-        df['Price'] = df['Price'].astype(str).str.replace(',', '')
         df['Price'] = pd.to_numeric(df['Price'], errors='coerce')
         df = df.dropna(subset=['Date', 'Price'])
         df = df[['Date', 'Price']].set_index('Date')
         df.columns = [name]
-
         prices_df = df if prices_df.empty else prices_df.join(df, how='inner')
         asset_names.append(name)
-
-        st.sidebar.markdown(f"---\n### ⚙️ تنظیمات بیمه برای دارایی: `{name}`")
-        insured = st.sidebar.checkbox(f"📌 فعال‌سازی بیمه برای {name}", key=f"insured_{name}")
-        if insured:
-            loss_percent = st.sidebar.number_input(f"📉 درصد ضرر معامله پوت برای {name}", 0.0, 100.0, 30.0, step=0.01, key=f"loss_{name}")
-            strike = st.sidebar.number_input(f"🎯 قیمت اعمال پوت برای {name}", 0.0, 1e6, 100.0, step=0.01, key=f"strike_{name}")
-            premium = st.sidebar.number_input(f"💰 قیمت قرارداد پوت برای {name}", 0.0, 1e6, 5.0, step=0.01, key=f"premium_{name}")
-            amount = st.sidebar.number_input(f"📦 مقدار قرارداد برای {name}", 0.0, 1e6, 1.0, step=0.01, key=f"amount_{name}")
-            spot_price = st.sidebar.number_input(f"📌 قیمت فعلی دارایی پایه {name}", 0.0, 1e6, 100.0, step=0.01, key=f"spot_{name}")
-            asset_amount = st.sidebar.number_input(f"📦 مقدار دارایی پایه {name}", 0.0, 1e6, 1.0, step=0.01, key=f"base_{name}")
-            insured_assets[name] = {
-                'loss_percent': loss_percent,
-                'strike': strike,
-                'premium': premium,
-                'amount': amount,
-                'spot': spot_price,
-                'base': asset_amount
-            }
 
     if prices_df.empty:
         st.error("❌ داده‌ی معتبری برای تحلیل یافت نشد.")
@@ -266,6 +151,8 @@ if all_assets:
     st.subheader("🧪 پیش‌نمایش داده‌ها")
     st.dataframe(prices_df.tail())
 
+    resample_rule = {'ماهانه': 'M', 'سه‌ماهه': 'Q', 'شش‌ماهه': '2Q'}[period]
+    annual_factor = {'ماهانه': 12, 'سه‌ماهه': 4, 'شش‌ماهه': 2}[period]
     resampled_prices = prices_df.resample(resample_rule).last().dropna()
     returns = resampled_prices.pct_change().dropna()
     mean_returns = returns.mean() * annual_factor
@@ -274,31 +161,22 @@ if all_assets:
     downside = returns.copy()
     downside[downside > 0] = 0
 
-    preference_weights = []
-    for i, name in enumerate(asset_names):
-        if name in insured_assets:
-            risk_scale = 1 - insured_assets[name]['loss_percent'] / 100
-            preference_weights.append(1 / (std_devs[i] * risk_scale**0.7))
-        else:
-            preference_weights.append(1 / std_devs[i])
-    preference_weights = np.array(preference_weights)
-    preference_weights /= np.sum(preference_weights)
+    user_risk = st.sidebar.slider("ریسک هدف پرتفو (انحراف معیار سالانه)", 0.01, 1.0, float(st.session_state.get("risk_value", 0.25)), 0.01)
+    cvar_alpha = st.sidebar.slider("سطح اطمینان CVaR", 0.80, 0.99, 0.95, 0.01)
 
-    # ----------- نمایش سبک‌ها بر اساس انتخاب کاربر -----------
+    # ------------- MPT -------------
     if "MPT (مارکوویتز کلاسیک)" in show_methods:
         n = len(asset_names)
-        bounds = tuple((asset_min_weights.get(name, 0)/100, asset_max_weights.get(name, 100)/100) for name in asset_names)
-        constraints = ({'type': 'eq', 'fun': lambda x: np.sum(x) - 1})
+        bounds = tuple((0, 1) for _ in asset_names)
+        constraints = {'type': 'eq', 'fun': lambda x: np.sum(x) - 1}
         x0 = np.ones(n) / n
-
-        def portfolio_variance(weights, mean_returns, cov_matrix):
-            return np.dot(weights.T, np.dot(cov_matrix, weights))
 
         def neg_sharpe_ratio(weights, mean_returns, cov_matrix, rf):
             port_return = np.dot(weights, mean_returns)
             port_std = np.sqrt(np.dot(weights.T, np.dot(cov_matrix, weights)))
             return -(port_return - rf/100) / port_std
 
+        from scipy.optimize import minimize
         opt = minimize(
             neg_sharpe_ratio, x0=x0, args=(mean_returns, cov_matrix, rf),
             method='SLSQP', bounds=bounds, constraints=constraints
@@ -316,23 +194,35 @@ if all_assets:
         """)
         for i, name in enumerate(asset_names):
             st.markdown(f"🔹 وزن {name}: {mpt_weights[i]*100:.2f}%")
-
-        st.subheader("🥧 نمودار توزیع دارایی‌ها در پرتفو بهینه (MPT)")
-        fig_pie_mpt = px.pie(
-            names=asset_names,
-            values=mpt_weights * 100,
-            title="توزیع وزنی دارایی‌ها در پرتفو بهینه (MPT)",
-            hole=0.3
-        )
+        fig_pie_mpt = go.Figure(data=[go.Pie(labels=asset_names, values=mpt_weights * 100, hole=.3)])
         fig_pie_mpt.update_traces(textinfo='percent+label')
+        fig_pie_mpt.update_layout(title="توزیع وزنی دارایی‌ها در پرتفو بهینه (MPT)")
         st.plotly_chart(fig_pie_mpt, use_container_width=True)
 
+    # ------------- Monte Carlo/CVaR -------------
     if "مونت‌کارلو/ CVaR" in show_methods:
         n_portfolios = 2000
         n_mc = 200
-        with st.spinner("در حال محاسبه پرتفوها... لطفا کمی صبر کنید"):
-            results = monte_carlo_sim(mean_returns, cov_matrix, downside, annual_factor, asset_names, insured_assets, 
-                                      preference_weights, asset_min_weights, asset_max_weights, rf, user_risk, cvar_alpha, n_portfolios, n_mc)
+        results = np.zeros((5 + len(asset_names), n_portfolios))
+        np.random.seed(42)
+        for i in range(n_portfolios):
+            weights = np.random.random(len(asset_names))
+            weights /= np.sum(weights)
+            port_return = np.dot(weights, mean_returns)
+            port_std = np.sqrt(np.dot(weights.T, np.dot(cov_matrix, weights)))
+            downside_risk = np.sqrt(np.dot(weights.T, np.dot(downside.cov() * annual_factor, weights)))
+            sharpe_ratio = (port_return - rf/100) / port_std
+            sortino_ratio = (port_return - rf/100) / downside_risk if downside_risk > 0 else np.nan
+            mc_sims = np.random.multivariate_normal(mean_returns/annual_factor, cov_matrix/annual_factor, n_mc)
+            port_mc_returns = np.dot(mc_sims, weights)
+            VaR = np.percentile(port_mc_returns, (1 - cvar_alpha) * 100)
+            CVaR = port_mc_returns[port_mc_returns <= VaR].mean() if np.any(port_mc_returns <= VaR) else VaR
+            results[0, i] = port_return
+            results[1, i] = port_std
+            results[2, i] = sharpe_ratio
+            results[3, i] = sortino_ratio
+            results[4, i] = -CVaR
+            results[5:, i] = weights
         best_idx = np.argmin(np.abs(results[1] - user_risk))
         best_return = results[0, best_idx]
         best_risk = results[1, best_idx]
@@ -355,17 +245,10 @@ if all_assets:
         """)
         for i, name in enumerate(asset_names):
             st.markdown(f"🔹 وزن {name}: {best_weights[i]*100:.2f}%")
-
-        st.subheader("🥧 نمودار توزیع دارایی‌ها در پرتفو بهینه (مونت‌کارلو)")
-        fig_pie_mc = px.pie(
-            names=asset_names,
-            values=best_weights * 100,
-            title="توزیع وزنی دارایی‌ها در پرتفو بهینه (مونت‌کارلو)",
-            hole=0.3
-        )
+        fig_pie_mc = go.Figure(data=[go.Pie(labels=asset_names, values=best_weights * 100, hole=.3)])
         fig_pie_mc.update_traces(textinfo='percent+label')
+        fig_pie_mc.update_layout(title="توزیع وزنی دارایی‌ها در پرتفو بهینه (مونت‌کارلو)")
         st.plotly_chart(fig_pie_mc, use_container_width=True)
-
         st.subheader(f"🟢 پرتفو بهینه بر اساس CVaR ({int(cvar_alpha*100)}%)")
         st.markdown(f"""
         - ✅ بازده سالانه: **{best_cvar_return:.2%}**
@@ -374,15 +257,62 @@ if all_assets:
         """)
         for i, name in enumerate(asset_names):
             st.markdown(f"🔸 وزن {name}: {best_cvar_weights[i]*100:.2f}%")
-
-        st.subheader(f"🥧 نمودار توزیع دارایی‌ها در پرتفو بهینه (CVaR {int(cvar_alpha*100)}%)")
-        fig_pie_cvar = px.pie(
-            names=asset_names,
-            values=best_cvar_weights * 100,
-            title=f"توزیع وزنی دارایی‌ها در پرتفو بهینه (CVaR {int(cvar_alpha*100)}%)",
-            hole=0.3
-        )
+        fig_pie_cvar = go.Figure(data=[go.Pie(labels=asset_names, values=best_cvar_weights * 100, hole=.3)])
         fig_pie_cvar.update_traces(textinfo='percent+label')
+        fig_pie_cvar.update_layout(title=f"توزیع وزنی دارایی‌ها (CVaR {int(cvar_alpha*100)}%)")
         st.plotly_chart(fig_pie_cvar, use_container_width=True)
+
+    # ----------- پیش‌بینی حرفه‌ای قیمت با ARIMA و GARCH -----------
+    st.subheader("🔮 پیش‌بینی حرفه‌ای قیمت و بازده آتی هر دارایی (ARIMA و GARCH)")
+    future_periods = 30
+    for name in asset_names:
+        st.markdown(f"**{name}**")
+        price_series = prices_df[name].dropna()
+        if price_series.shape[0] < 30:
+            st.warning("داده کافی برای پیش‌بینی حرفه‌ای وجود ندارد (حداقل 30 نقطه لازم است).")
+            continue
+        # ARIMA
+        try:
+            model_arima = ARIMA(price_series, order=(1,1,1))
+            model_arima_fit = model_arima.fit()
+            forecast_arima = model_arima_fit.forecast(steps=future_periods)
+            forecast_index = pd.date_range(price_series.index[-1], periods=future_periods+1, freq='D')[1:]
+            forecast_arima.index = forecast_index
+            st.success("پیش‌بینی ARIMA با موفقیت انجام شد.")
+        except Exception as ex:
+            st.error(f"خطا در مدل ARIMA: {ex}")
+            continue
+        # GARCH
+        try:
+            returns = price_series.pct_change().dropna() * 100
+            garch_model = arch_model(returns, p=1, q=1)
+            garch_fit = garch_model.fit(disp="off")
+            garch_forecast = garch_fit.forecast(horizon=future_periods)
+            forecast_vol = np.sqrt(garch_forecast.variance.values[-1, :])
+            arima_last = price_series.iloc[-1]
+            garch_sim = arima_last * (1 + np.cumsum(np.random.normal(0, forecast_vol/100, future_periods)))
+            st.success("پیش‌بینی GARCH با موفقیت انجام شد.")
+        except Exception as ex:
+            st.error(f"خطا در مدل GARCH: {ex}")
+            forecast_vol = None
+        # نمودار
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(x=price_series.index, y=price_series, mode='lines', name='قیمت تاریخی'))
+        fig.add_trace(go.Scatter(x=forecast_arima.index, y=forecast_arima, mode='lines', name='پیش‌بینی ARIMA', line=dict(color='blue')))
+        if forecast_vol is not None:
+            fig.add_trace(go.Scatter(x=forecast_arima.index, y=garch_sim, mode='lines', name='سناریو GARCH', line=dict(color='orange', dash='dot')))
+        fig.update_layout(title=f"پیش‌بینی قیمت {name} (ARIMA و GARCH)", xaxis_title='تاریخ', yaxis_title='قیمت')
+        st.plotly_chart(fig, use_container_width=True)
+        # نتایج عددی
+        last_actual = price_series.iloc[-1]
+        arima_last_pred = forecast_arima.iloc[-1]
+        arima_return = (arima_last_pred - last_actual) / last_actual
+        st.markdown(f"📈 **قیمت فعلی:** {last_actual:.2f} | **قیمت پیش‌بینی ARIMA ({future_periods} روز):** {arima_last_pred:.2f}")
+        st.markdown(f"📊 **بازده پیش‌بینی‌شده ARIMA ({future_periods} روز):** {arima_return:.2%}")
+        if forecast_vol is not None:
+            garch_last_pred = garch_sim[-1]
+            garch_return = (garch_last_pred - last_actual) / last_actual
+            st.markdown(f"🌪️ **قیمت سناریوی GARCH ({future_periods} روز):** {garch_last_pred:.2f}")
+            st.markdown(f"🌪️ **بازده سناریوی GARCH:** {garch_return:.2%}")
 else:
-    st.warning("⚠️ لطفاً فایل‌های CSV شامل ستون‌های Date و Price را آپلود کنید.")
+    st.warning("⚠️ لطفاً فایل‌های CSV شامل ستون‌های Date و Price را آپلود کنید یا داده آنلاین وارد نمایید.")
