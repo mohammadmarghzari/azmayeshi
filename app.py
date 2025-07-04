@@ -5,7 +5,6 @@ import plotly.graph_objects as go
 import plotly.express as px
 import yfinance as yf
 
-# --- تابع کمکی برای داده yfinance ---
 def get_price_dataframe_from_yf(data, ticker):
     try:
         if isinstance(data.columns, pd.MultiIndex):
@@ -271,6 +270,7 @@ if all_assets:
     best_cvar_cvar = results[4, best_cvar_idx]
     best_cvar_weights = results[5:, best_cvar_idx]
 
+    # ----- 📈 پرتفو بهینه (مونت‌کارلو) -----
     st.subheader("📈 پرتفو بهینه (مونت‌کارلو)")
     st.markdown(f"""
     - ✅ بازده سالانه: **{best_return:.2%}**
@@ -281,16 +281,27 @@ if all_assets:
     for i, name in enumerate(asset_names):
         st.markdown(f"🔹 وزن {name}: {best_weights[i]*100:.2f}%")
 
+    # --- 🥧 نمودار Pie مونت‌کارلو با استایل حرفه‌ای ---
     st.subheader("🥧 نمودار توزیع دارایی‌ها در پرتفو بهینه (مونت‌کارلو)")
     fig_pie_mc = px.pie(
         names=asset_names,
         values=best_weights * 100,
         title="توزیع وزنی دارایی‌ها در پرتفو بهینه (مونت‌کارلو)",
-        hole=0.3
+        hole=0.3,
+        color=asset_names,
+        color_discrete_sequence=px.colors.qualitative.Safe
     )
-    fig_pie_mc.update_traces(textinfo='percent+label')
+    fig_pie_mc.update_traces(
+        textinfo='percent+label+value',
+        pull=[0.08 if name in insured_assets else 0 for name in asset_names],
+        marker=dict(line=dict(color='#222', width=2)),
+        hovertemplate="<b>%{label}</b><br>وزن: %{value:.2f}%<br>بیمه: %{customdata}"
+    )
+    fig_pie_mc.update_layout(font_family="Vazirmatn", title_font_size=20)
+    fig_pie_mc.for_each_trace(lambda t: t.update(customdata=[("بیمه شده" if nm in insured_assets else "بدون بیمه") for nm in asset_names]))
     st.plotly_chart(fig_pie_mc, use_container_width=True)
 
+    # --- 🟢 پرتفو بهینه بر اساس CVaR ---
     st.subheader(f"🟢 پرتفو بهینه بر اساس CVaR ({int(cvar_alpha*100)}%)")
     st.markdown(f"""
     - ✅ بازده سالانه: **{best_cvar_return:.2%}**
@@ -299,16 +310,28 @@ if all_assets:
     """)
     for i, name in enumerate(asset_names):
         st.markdown(f"🔸 وزن {name}: {best_cvar_weights[i]*100:.2f}%")
+
+    # --- 🥧 نمودار Pie CVaR با استایل حرفه‌ای ---
     st.subheader(f"🥧 نمودار توزیع دارایی‌ها در پرتفو بهینه (CVaR {int(cvar_alpha*100)}%)")
     fig_pie_cvar = px.pie(
         names=asset_names,
         values=best_cvar_weights * 100,
         title=f"توزیع وزنی دارایی‌ها در پرتفو بهینه (CVaR {int(cvar_alpha*100)}%)",
-        hole=0.3
+        hole=0.3,
+        color=asset_names,
+        color_discrete_sequence=px.colors.qualitative.Pastel
     )
-    fig_pie_cvar.update_traces(textinfo='percent+label')
+    fig_pie_cvar.update_traces(
+        textinfo='percent+label+value',
+        pull=[0.08 if name in insured_assets else 0 for name in asset_names],
+        marker=dict(line=dict(color='#222', width=2)),
+        hovertemplate="<b>%{label}</b><br>وزن: %{value:.2f}%<br>بیمه: %{customdata}"
+    )
+    fig_pie_cvar.update_layout(font_family="Vazirmatn", title_font_size=20)
+    fig_pie_cvar.for_each_trace(lambda t: t.update(customdata=[("بیمه شده" if nm in insured_assets else "بدون بیمه") for nm in asset_names]))
     st.plotly_chart(fig_pie_cvar, use_container_width=True)
 
+    # --- 📋 جدول مقایسه وزن دارایی‌ها (مونت‌کارلو و CVaR) ---
     st.subheader("📋 جدول مقایسه وزن دارایی‌ها (مونت‌کارلو و CVaR)")
     compare_df = pd.DataFrame({
         'دارایی': asset_names,
@@ -318,13 +341,62 @@ if all_assets:
     compare_df['اختلاف وزن (%)'] = compare_df[f'وزن CVaR ({int(cvar_alpha*100)}%) (%)'] - compare_df['وزن مونت‌کارلو (%)']
     st.dataframe(compare_df.set_index('دارایی'), use_container_width=True, height=300)
 
+    # --- نمودار میله‌ای مقایسه وزن‌ها با رنگ سفارشی ---
+    st.subheader("📊 مقایسه وزن دارایی‌ها در پرتفوهای مختلف")
+    colors_mc = ['#2ecc71' if name in insured_assets else '#3498db' for name in asset_names]
+    colors_cvar = ['#f39c12' if name in insured_assets else '#e74c3c' for name in asset_names]
     fig_w = go.Figure()
-    fig_w.add_trace(go.Bar(x=asset_names, y=best_weights*100, name='مونت‌کارلو'))
-    fig_w.add_trace(go.Bar(x=asset_names, y=best_cvar_weights*100, name=f'CVaR {int(cvar_alpha*100)}%'))
-    fig_w.update_layout(barmode='group', title="مقایسه وزن دارایی‌ها در دو سبک")
+    fig_w.add_trace(go.Bar(x=asset_names, y=best_weights*100, name='مونت‌کارلو', marker_color=colors_mc))
+    fig_w.add_trace(go.Bar(x=asset_names, y=best_cvar_weights*100, name=f'CVaR {int(cvar_alpha*100)}%', marker_color=colors_cvar))
+    fig_w.update_layout(barmode='group', title="مقایسه وزن دارایی‌ها در دو سبک", font_family="Vazirmatn",
+                        xaxis_title='دارایی', yaxis_title='وزن (%)', legend_title='سبک', title_font_size=20)
     st.plotly_chart(fig_w, use_container_width=True)
 
-    # Married Put charts
+    # --- 🌈 نمودار مرز کارا با خطوط هدف و annotation ---
+    st.subheader("🌈 نمودار مرز کارا")
+    fig = px.scatter(
+        x=results[1]*100,
+        y=results[0]*100,
+        color=results[2],
+        labels={'x': 'ریسک (%)', 'y': 'بازده (%)'},
+        title='پرتفوهای شبیه‌سازی‌شده (مونت‌کارلو) و مرز CVaR',
+        color_continuous_scale='Viridis'
+    )
+    fig.add_trace(go.Scatter(x=[best_risk*100], y=[best_return*100],
+                             mode='markers+text', marker=dict(size=16, color='red', symbol='star'),
+                             text=["بهینه MC"], textposition="top center", name='پرتفوی بهینه مونت‌کارلو'))
+    fig.add_trace(go.Scatter(x=[best_cvar_risk*100], y=[best_cvar_return*100],
+                             mode='markers+text', marker=dict(size=16, color='orange', symbol='star'),
+                             text=["بهینه CVaR"], textposition="bottom left", name='پرتفوی بهینه CVaR'))
+    # خط ریسک هدف
+    fig.add_shape(type="line", x0=user_risk*100, y0=min(results[0]*100), x1=user_risk*100, y1=max(results[0]*100),
+                  line=dict(color="RoyalBlue", width=2, dash="dash"), name="ریسک هدف")
+    cvar_sorted_idx = np.argsort(results[4])
+    fig.add_trace(go.Scatter(
+        x=results[1, cvar_sorted_idx]*100,
+        y=results[0, cvar_sorted_idx]*100,
+        mode='lines',
+        line=dict(color='orange', dash='dot'),
+        name='مرز کارا (CVaR)'
+    ))
+    fig.update_layout(font_family="Vazirmatn", title_font_size=20)
+    st.plotly_chart(fig, use_container_width=True)
+
+    # --- 🔵 نمودار بازده- CVaR برای پرتفوها ---
+    st.subheader("🔵 نمودار بازده- CVaR برای پرتفوها")
+    fig_cvar = px.scatter(
+        x=results[4], y=results[0],
+        labels={'x': f'CVaR ({int(cvar_alpha*100)}%)', 'y': 'بازده'},
+        title='پرتفوها بر اساس بازده و CVaR',
+        color=results[1], color_continuous_scale='Blues'
+    )
+    fig_cvar.add_trace(go.Scatter(x=[best_cvar_cvar], y=[best_cvar_return],
+                                  mode='markers+text', marker=dict(size=16, color='red', symbol='star'),
+                                  text=["بهینه CVaR"], textposition="top center", name='پرتفوی بهینه CVaR'))
+    fig_cvar.update_layout(font_family="Vazirmatn", title_font_size=20)
+    st.plotly_chart(fig_cvar, use_container_width=True)
+
+    # --- Married Put charts با annotation و دکمه دانلود ---
     for name, info in insured_assets.items():
         st.subheader(f"📉 نمودار سود و زیان استراتژی Married Put - {name}")
         x = np.linspace(info['spot'] * 0.5, info['spot'] * 1.5, 200)
@@ -348,17 +420,19 @@ if all_assets:
         zero_crossings = np.where(np.diff(np.sign(total_pnl)))[0]
         if len(zero_crossings):
             breakeven_x = x[zero_crossings[0]]
-            fig2.add_trace(go.Scatter(x=[breakeven_x], y=[0], mode='markers+text', marker=dict(color='orange', size=10),
+            fig2.add_trace(go.Scatter(x=[breakeven_x], y=[0], mode='markers+text', marker=dict(color='orange', size=14),
                                       text=["سر به سر"], textposition="bottom center", name='سر به سر'))
         max_pnl = np.max(total_pnl)
         max_x = x[np.argmax(total_pnl)]
-        fig2.add_trace(go.Scatter(x=[max_x], y=[max_pnl], mode='markers+text', marker=dict(color='green', size=10),
+        fig2.add_trace(go.Scatter(x=[max_x], y=[max_pnl], mode='markers+text', marker=dict(color='green', size=14),
                                   text=[f"{(max_pnl/(info['spot']*info['base'])*100):.1f}% سود"], textposition="top right",
                                   showlegend=False))
-        fig2.update_layout(title='نمودار سود و زیان', xaxis_title='قیمت دارایی در سررسید', yaxis_title='سود/زیان')
+        fig2.update_layout(title='نمودار سود و زیان (Married Put)', font_family='Vazirmatn',
+                           xaxis_title='قیمت دارایی در سررسید', yaxis_title='سود/زیان', title_font_size=20)
         st.plotly_chart(fig2, use_container_width=True)
+        st.download_button("دانلود نمودار Married Put", fig2.to_image(format="png"), file_name=f"married_put_{name}.png")
 
-    # پیش‌بینی ساده آینده قیمت هر دارایی (Monte Carlo)
+    # --- پیش‌بینی قیمت و بازده آتی هر دارایی ---
     st.subheader("🔮 پیش‌بینی قیمت و بازده آتی هر دارایی")
     future_months = 6 if period == 'شش‌ماهه' else (3 if period == 'سه‌ماهه' else 1)
     for i, name in enumerate(asset_names):
@@ -378,7 +452,7 @@ if all_assets:
         fig3.add_trace(go.Histogram(x=sim_prices, nbinsx=20, name="پیش‌بینی قیمت", marker_color='purple'))
         fig3.add_vline(x=future_price_mean, line_dash="dash", line_color="green", annotation_text=f"میانگین: {future_price_mean:.2f}")
         fig3.update_layout(title=f"پیش‌بینی قیمت {name} در {future_months} {'ماه' if future_months>1 else 'ماه'} آینده",
-            xaxis_title="قیمت انتهایی", yaxis_title="تعداد شبیه‌سازی")
+            xaxis_title="قیمت انتهایی", yaxis_title="تعداد شبیه‌سازی", font_family="Vazirmatn", title_font_size=20)
         st.plotly_chart(fig3, use_container_width=True)
         st.markdown(f"📈 **میانگین قیمت آینده:** {future_price_mean:.2f} | 📊 **درصد بازده آتی:** {future_return:.2%}")
 
