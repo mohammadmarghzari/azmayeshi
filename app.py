@@ -5,7 +5,7 @@ import plotly.graph_objects as go
 import plotly.express as px
 import yfinance as yf
 
-# --------- تابع رفع خطا و تبدیل داده yfinance به DataFrame مناسب ---------
+# --- تابع کمکی برای داده yfinance ---
 def get_price_dataframe_from_yf(data, ticker):
     try:
         if isinstance(data.columns, pd.MultiIndex):
@@ -17,10 +17,6 @@ def get_price_dataframe_from_yf(data, ticker):
         return df, None
     except Exception as e:
         return None, f"خطا در پردازش داده {ticker}: {e}"
-# -------------------------------------------------------------------------
-
-st.set_page_config(page_title="تحلیل پرتفو با مونت‌کارلو، CVaR و Married Put", layout="wide")
-st.title("📊 ابزار تحلیل پرتفو با روش مونت‌کارلو، CVaR و استراتژی Married Put")
 
 def read_csv_file(file):
     try:
@@ -31,6 +27,60 @@ def read_csv_file(file):
     except Exception as e:
         st.error(f"خطا در خواندن فایل {file.name}: {e}")
         return None
+
+# ---------- تست ریسک رفتاری ----------
+st.sidebar.markdown("## 🧠 تست پروفایل ریسک رفتاری")
+with st.sidebar.expander("انجام تست ریسک رفتاری", expanded=True):
+    q1 = st.radio("اگر ارزش پرتفو شما به طور موقت ۱۵٪ کاهش یابد، چه کار می‌کنید؟", ["سریع می‌فروشم", "نگه می‌دارم", "خرید می‌کنم"], key="risk_q1")
+    q2 = st.radio("در یک سرمایه‌گذاری پرریسک با بازده بالا، چه احساسی دارید؟", ["نگران", "بی‌تفاوت", "هیجان‌زده"], key="risk_q2")
+    q3 = st.radio("کدام جمله به شما نزدیک‌تر است؟", [
+        "ترجیح می‌دهم سود کم ولی قطعی داشته باشم", 
+        "سود متوسط ولی با کمی ریسک را می‌پذیرم", 
+        "پتانسیل سود بالا مهم‌تر از ریسک است"
+    ], key="risk_q3")
+    q4 = st.radio("در گذشته اگر ضرر قابل توجهی کردید، چه واکنشی داشتید؟", [
+        "کاملاً عقب نشینی کردم", 
+        "تحمل کردم و صبر کردم", 
+        "با تحلیل دوباره وارد شدم"
+    ], key="risk_q4")
+    q1_map = {"سریع می‌فروشم": 1, "نگه می‌دارم": 2, "خرید می‌کنم": 3}
+    q2_map = {"نگران": 1, "بی‌تفاوت": 2, "هیجان‌زده": 3}
+    q3_map = {
+        "ترجیح می‌دهم سود کم ولی قطعی داشته باشم": 1,
+        "سود متوسط ولی با کمی ریسک را می‌پذیرم": 2,
+        "پتانسیل سود بالا مهم‌تر از ریسک است": 3
+    }
+    q4_map = {
+        "کاملاً عقب نشینی کردم": 1,
+        "تحمل کردم و صبر کردم": 2,
+        "با تحلیل دوباره وارد شدم": 3
+    }
+    if st.button("ثبت نتیجه تست ریسک رفتاری", key="submit_risk_test"):
+        risk_score = q1_map[q1] + q2_map[q2] + q3_map[q3] + q4_map[q4]
+        if risk_score <= 6:
+            risk_profile = "محافظه‌کار (Conservative)"
+            risk_desc = "شما ریسک‌گریز هستید، سرمایه‌گذاری کم‌ریسک برای شما مناسب‌تر است."
+            risk_value = 0.10
+        elif risk_score <= 9:
+            risk_profile = "متعادل (Moderate)"
+            risk_desc = "تحمل ریسک شما متوسط است. ترکیبی از دارایی‌های با ریسک متوسط و کم توصیه می‌شود."
+            risk_value = 0.25
+        else:
+            risk_profile = "تهاجمی (Aggressive)"
+            risk_desc = "شما پذیرای ریسک بالا هستید و می‌توانید سراغ دارایی‌های پرنوسان‌تر بروید."
+            risk_value = 0.40
+
+        st.success(f"پروفایل ریسک شما: **{risk_profile}**")
+        st.info(risk_desc)
+        st.session_state["risk_profile"] = risk_profile
+        st.session_state["risk_value"] = risk_value
+
+if "risk_profile" not in st.session_state or "risk_value" not in st.session_state:
+    st.warning("⚠️ لطفاً ابتدا تست ریسک رفتاری را کامل کنید تا دیگر ابزارها در دسترس قرار گیرند.")
+    st.stop()
+
+st.set_page_config(page_title="تحلیل پرتفو با مونت‌کارلو، CVaR و Married Put", layout="wide")
+st.title("📊 ابزار تحلیل پرتفو با روش مونت‌کارلو، CVaR و استراتژی Married Put")
 
 st.sidebar.markdown("## تنظیمات کلی 	:gear:")
 with st.sidebar.expander("تنظیمات کلی", expanded=True):
@@ -46,7 +96,6 @@ with st.sidebar.expander("محدودیت وزن دارایی‌ها :lock:", exp
     uploaded_files = st.file_uploader(
         "چند فایل CSV آپلود کنید (هر دارایی یک فایل)", type=['csv'], accept_multiple_files=True, key="uploader"
     )
-    # داده‌های آپلود شده و دانلود شده را با هم ترکیب کن
     all_assets = []
     if uploaded_files:
         for file in uploaded_files:
@@ -90,7 +139,6 @@ with st.sidebar.expander("محدودیت وزن دارایی‌ها :lock:", exp
     if st.session_state.get("downloaded_dfs"):
         all_assets.extend(st.session_state["downloaded_dfs"])
 
-    # حداقل و حداکثر وزن هر دارایی (درصدی)
     asset_min_weights = {}
     asset_max_weights = {}
     for name, df in all_assets:
@@ -103,36 +151,32 @@ with st.sidebar.expander("محدودیت وزن دارایی‌ها :lock:", exp
             f"حداکثر وزن {name}", min_value=0.0, max_value=100.0, value=100.0, step=1.0, key=f"max_weight_{name}"
         )
 
-# تنظیمات دیگر
 resample_rule = {'ماهانه': 'M', 'سه‌ماهه': 'Q', 'شش‌ماهه': '2Q'}[period]
 annual_factor = {'ماهانه': 12, 'سه‌ماهه': 4, 'شش‌ماهه': 2}[period]
-user_risk = st.sidebar.slider("ریسک هدف پرتفو (انحراف معیار سالانه)", 0.01, 1.0, 0.25, 0.01)
+user_risk = st.sidebar.slider("ریسک هدف پرتفو (انحراف معیار سالانه)", 0.01, 1.0, float(st.session_state.get("risk_value", 0.25)), 0.01)
 cvar_alpha = st.sidebar.slider("سطح اطمینان CVaR", 0.80, 0.99, 0.95, 0.01)
 
 if all_assets:
     prices_df = pd.DataFrame()
-    asset_names = []
-    insured_assets = {}
-
     for name, df in all_assets:
         if df is None:
             continue
-
         if 'Date' not in df.columns or 'Price' not in df.columns:
             st.warning(f"فایل {name} باید دارای ستون‌های 'Date' و 'Price' باشد.")
             continue
-
         df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
         df['Price'] = df['Price'].astype(str).str.replace(',', '')
         df['Price'] = pd.to_numeric(df['Price'], errors='coerce')
         df = df.dropna(subset=['Date', 'Price'])
         df = df[['Date', 'Price']].set_index('Date')
         df.columns = [name]
-
         prices_df = df if prices_df.empty else prices_df.join(df, how='inner')
-        asset_names.append(name)
 
-        # ----- بیمه (Married Put) -----
+    asset_names = list(prices_df.columns)  # فقط دارایی‌هایی که داده دارند
+
+    insured_assets = {}
+    # ---- بیمه (Married Put) به سبک v2 ----
+    for name in asset_names:
         st.sidebar.markdown(f"---\n### ⚙️ تنظیمات بیمه برای دارایی: `{name}`")
         insured = st.sidebar.checkbox(f"📌 فعال‌سازی بیمه برای {name}", key=f"insured_{name}")
         if insured:
@@ -151,7 +195,7 @@ if all_assets:
                 'base': asset_amount
             }
 
-    if prices_df.empty:
+    if prices_df.empty or len(asset_names) == 0:
         st.error("❌ داده‌ی معتبری برای تحلیل یافت نشد.")
         st.stop()
 
@@ -178,7 +222,6 @@ if all_assets:
     preference_weights = np.array(preference_weights)
     preference_weights /= np.sum(preference_weights)
 
-    # شبیه‌سازی مونت‌کارلو با CVaR با رعایت محدودیت‌های وزن
     n_portfolios = 10000
     n_mc = 1000
     results = np.zeros((5 + len(asset_names), n_portfolios))
@@ -191,12 +234,10 @@ if all_assets:
     max_weights_arr = np.array([asset_max_weights.get(name, 100)/100 for name in asset_names])
 
     for i in range(n_portfolios):
-        # تولید وزن‌های تصادفی در بازه min/max تعریف‌شده
         weights = np.random.random(len(asset_names)) * preference_weights
         weights /= np.sum(weights)
         weights = min_weights_arr + (max_weights_arr - min_weights_arr) * weights
-        weights /= np.sum(weights)  # مجموع ۱ شود
-        # چک: اگر مجموع minهای وارد شده >۱، نرمالایز فقط بر مبنای min نباشد
+        weights /= np.sum(weights)
         if np.sum(min_weights_arr) > 1:
             weights = min_weights_arr / np.sum(min_weights_arr)
         port_return = np.dot(weights, mean_returns)
@@ -240,7 +281,6 @@ if all_assets:
     for i, name in enumerate(asset_names):
         st.markdown(f"🔹 وزن {name}: {best_weights[i]*100:.2f}%")
 
-    # Pie Chart سبک مونت‌کارلو
     st.subheader("🥧 نمودار توزیع دارایی‌ها در پرتفو بهینه (مونت‌کارلو)")
     fig_pie_mc = px.pie(
         names=asset_names,
@@ -259,7 +299,6 @@ if all_assets:
     """)
     for i, name in enumerate(asset_names):
         st.markdown(f"🔸 وزن {name}: {best_cvar_weights[i]*100:.2f}%")
-    # Pie Chart سبک CVaR
     st.subheader(f"🥧 نمودار توزیع دارایی‌ها در پرتفو بهینه (CVaR {int(cvar_alpha*100)}%)")
     fig_pie_cvar = px.pie(
         names=asset_names,
@@ -284,56 +323,6 @@ if all_assets:
     fig_w.add_trace(go.Bar(x=asset_names, y=best_cvar_weights*100, name=f'CVaR {int(cvar_alpha*100)}%'))
     fig_w.update_layout(barmode='group', title="مقایسه وزن دارایی‌ها در دو سبک")
     st.plotly_chart(fig_w, use_container_width=True)
-
-    st.subheader("🌈 نمودار مرز کارا")
-    fig = px.scatter(
-        x=results[1]*100,
-        y=results[0]*100,
-        color=results[2],
-        labels={'x': 'ریسک (%)', 'y': 'بازده (%)'},
-        title='پرتفوهای شبیه‌سازی‌شده (مونت‌کارلو) و مرز CVaR',
-        color_continuous_scale='Viridis'
-    )
-    fig.add_trace(go.Scatter(x=[best_risk*100], y=[best_return*100],
-                             mode='markers', marker=dict(size=12, color='red', symbol='star'),
-                             name='پرتفوی بهینه مونت‌کارلو'))
-    fig.add_trace(go.Scatter(x=[best_cvar_risk*100], y=[best_cvar_return*100],
-                             mode='markers', marker=dict(size=12, color='orange', symbol='star'),
-                             name='پرتفوی بهینه CVaR'))
-    cvar_sorted_idx = np.argsort(results[4])
-    fig.add_trace(go.Scatter(
-        x=results[1, cvar_sorted_idx]*100,
-        y=results[0, cvar_sorted_idx]*100,
-        mode='lines',
-        line=dict(color='orange', dash='dot'),
-        name='مرز کارا (CVaR)'
-    ))
-    st.plotly_chart(fig, use_container_width=True)
-
-    st.subheader("🔵 نمودار بازده- CVaR برای پرتفوها")
-    fig_cvar = px.scatter(
-        x=results[4], y=results[0],
-        labels={'x': f'CVaR ({int(cvar_alpha*100)}%)', 'y': 'بازده'},
-        title='پرتفوها بر اساس بازده و CVaR',
-        color=results[1], color_continuous_scale='Blues'
-    )
-    fig_cvar.add_trace(go.Scatter(x=[best_cvar_cvar], y=[best_cvar_return],
-                                  mode='markers', marker=dict(size=12, color='red', symbol='star'),
-                                  name='پرتفوی بهینه CVaR'))
-    st.plotly_chart(fig_cvar, use_container_width=True)
-
-    st.subheader("💡 دارایی‌های پیشنهادی بر اساس نسبت بازده به ریسک")
-    asset_scores = {}
-    for i, name in enumerate(asset_names):
-        insured_factor = 1 - insured_assets.get(name, {}).get('loss_percent', 0)/100 if name in insured_assets else 1
-        score = mean_returns[i] / (std_devs[i]*insured_factor)
-        asset_scores[name] = score
-
-    sorted_assets = sorted(asset_scores.items(), key=lambda x: x[1], reverse=True)
-    st.markdown("**به ترتیب اولویت:**")
-    for name, score in sorted_assets:
-        insured_str = " (بیمه شده)" if name in insured_assets else ""
-        st.markdown(f"🔸 **{name}{insured_str}** | نسبت بازده به ریسک: {score:.2f}")
 
     # Married Put charts
     for name, info in insured_assets.items():
@@ -369,13 +358,7 @@ if all_assets:
         fig2.update_layout(title='نمودار سود و زیان', xaxis_title='قیمت دارایی در سررسید', yaxis_title='سود/زیان')
         st.plotly_chart(fig2, use_container_width=True)
 
-        if st.button(f"📷 ذخیره نمودار Married Put برای {name}"):
-            try:
-                img_bytes = fig2.to_image(format="png")
-                st.download_button("دانلود تصویر", img_bytes, file_name=f"married_put_{name}.png")
-            except Exception as e:
-                st.error(f"❌ خطا در ذخیره تصویر: {e}")
-
+    # پیش‌بینی ساده آینده قیمت هر دارایی (Monte Carlo)
     st.subheader("🔮 پیش‌بینی قیمت و بازده آتی هر دارایی")
     future_months = 6 if period == 'شش‌ماهه' else (3 if period == 'سه‌ماهه' else 1)
     for i, name in enumerate(asset_names):
@@ -400,4 +383,4 @@ if all_assets:
         st.markdown(f"📈 **میانگین قیمت آینده:** {future_price_mean:.2f} | 📊 **درصد بازده آتی:** {future_return:.2%}")
 
 else:
-    st.warning("⚠️ لطفاً فایل‌های CSV شامل ستون‌های Date و Price را آپلود کنید.")
+    st.warning("⚠️ لطفاً فایل‌های CSV شامل ستون‌های Date و Price را آپلود کنید یا داده آنلاین وارد نمایید.")
