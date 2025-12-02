@@ -1,3 +1,7 @@
+# ابزار تحلیل پرتفو با امکان حذف دارایی، نمایش drawdown و recovery time و کامنت‌گذاری کامل
+# نویسنده: mohammadmarghzari و Copilot
+# آخرین به‌روزرسانی: ۱۴۰۳/۰۹
+
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -6,7 +10,11 @@ import plotly.express as px
 import yfinance as yf
 import scipy.optimize as sco
 
-# ------------------ Utils -------------------
+# ============================
+# [بخش ۱] توابع کمکی (Utils)
+# ============================
+
+# گرفتن دیتافریم قیمت از یاهوفایننس (برای دانلود مستقیم)
 def get_price_dataframe_from_yf(data, ticker):
     try:
         if isinstance(data.columns, pd.MultiIndex):
@@ -19,6 +27,7 @@ def get_price_dataframe_from_yf(data, ticker):
     except Exception as e:
         return None, f"خطا در پردازش داده {ticker}: {e}"
 
+# خواندن و اعتبارسنجی فایل CSV آپلودی (ستون تاریخ و قیمت)
 def read_csv_file(file):
     try:
         df = pd.read_csv(file)
@@ -30,6 +39,7 @@ def read_csv_file(file):
     except Exception as e:
         return None, f"خطا در خواندن فایل {file.name}: {e}"
 
+# اعتبارسنجی مجموع حداقل و حداکثر وزن دارایی‌ها
 def validate_weights(min_weights, max_weights, asset_names):
     min_total = np.sum([min_weights.get(name, 0)/100 for name in asset_names])
     max_total = np.sum([max_weights.get(name, 100)/100 for name in asset_names])
@@ -39,6 +49,7 @@ def validate_weights(min_weights, max_weights, asset_names):
         return False, "💡 مجموع حداکثر وزن دارایی‌ها کمتر از ۱۰۰٪ است! ممکن است به خطا منتهی شود."
     return True, ""
 
+# بررسی معتبر بودن دیتافریم همه دارایی‌ها
 def is_all_assets_valid(all_assets):
     valid_names = [
         name for name, df in all_assets
@@ -49,6 +60,7 @@ def is_all_assets_valid(all_assets):
     ]
     return len(valid_names) > 0
 
+# پیام‌دهی با سطوح مختلف به کاربر (warning, error, info, success)
 def msg(msg, level="warning"):
     if level == "warning":
         st.warning(msg)
@@ -59,6 +71,7 @@ def msg(msg, level="warning"):
     else:
         st.success(msg)
 
+# تابع جمع کردن وزن دارایی‌هایی با درصد کم برای Pie Chart
 def compact_pie_weights(asset_names, weights, min_percent=0.1):
     weights_percent = 100 * np.array(weights)
     shown_assets, shown_weights = [], []
@@ -74,6 +87,7 @@ def compact_pie_weights(asset_names, weights, min_percent=0.1):
         shown_weights.append(other_weight)
     return shown_assets, shown_weights
 
+# بهینه‌سازی برای کمینه‌سازی واریانس پرتفوی (Minimum Variance Portfolio)
 def opt_min_variance(mean_returns, cov_matrix, bounds):
     n = len(mean_returns)
     cons = ({'type': 'eq', 'fun': lambda x: np.sum(x)-1})
@@ -87,6 +101,7 @@ def opt_min_variance(mean_returns, cov_matrix, bounds):
     )
     return result.x if result.success else None
 
+# بهینه‌سازی برای بیشینه‌سازی شارپ پرتفوی
 def opt_max_sharpe(mean_returns, cov_matrix, rf, bounds):
     n = len(mean_returns)
     cons = ({'type': 'eq', 'fun': lambda x: np.sum(x)-1})
@@ -104,9 +119,11 @@ def opt_max_sharpe(mean_returns, cov_matrix, rf, bounds):
     )
     return result.x if result.success else None
 
+# تولید وزن‌های برابر برای همه دارایی‌ها
 def equally_weighted_weights(n):
     return np.ones(n) / n
 
+# محاسبه بازده، ریسک و نسبت‌های شارپ و سورتینو پرتفو (در بازه‌های مختلف)
 def portfolio_stats(weights, mean_returns, cov_matrix, returns, rf, annual_factor):
     mean_m = mean_returns / annual_factor
     cov_m = cov_matrix / annual_factor
@@ -128,13 +145,17 @@ def portfolio_stats(weights, mean_returns, cov_matrix, returns, rf, annual_facto
     stats['sharpe'] = sharpe; stats['sortino'] = sortino
     return stats
 
-# ------------------ Drawdown Recovery Utils -------------------
+# ============================
+# [بخش ۲] محاسبه drawdown و recovery time
+# ============================
+
+# تابع محاسبه بزرگ‌ترین افت و زمان بازیابی (واحد: دوره زمانی اصلی دیتافریم).
+# ورودی: DataFrame با ستون‌های 'Date' و 'Price'
+# خروجی:
+#   recovery_times: لیست مدت زمان (تعداد روز/ماه/سه‌ماهه...) هر ریکاوری،
+#   max_recovery_time: بیش‌ترین زمان بازیابی،
+#   max_drawdown: عمیق‌ترین افت نسبت به سقف قبلی
 def calculate_drawdown_recovery(df):
-    """
-    df: DataFrame با ستون‌های 'Date' و 'Price'
-    خروجی: recovery_times: لیست مدت زمان (تعداد دوره) هر ریکاوری
-    و رکورد بزرگترین بازیابی
-    """
     df = df.sort_values("Date").reset_index(drop=True)
     prices = df['Price'].values
     peak = prices[0]
@@ -163,10 +184,43 @@ def calculate_drawdown_recovery(df):
                 max_drawdown = drawdown
     return recovery_times, max_recovery_time, max_drawdown
 
-# ---------------- Streamlit App -----------------
+# تبدیل دوره ریکاوری (عددی) به واحد زمانی مناسب (روز/ماه/سه‌ماهه/شش‌ماهه)
+def format_recovery_time(n, period):
+    if period == 'ماهانه':
+        unit = "ماه"
+    elif period == 'سه‌ماهه':
+        unit = "سه‌ماهه"
+    elif period == 'شش‌ماهه':
+        unit = "شش‌ماهه"
+    else:  # فرض بر روزانه (اگر کسی خواست اضافه کند)
+        unit = "روز"
+    return f"{n} {unit}"
+
+# ============================
+# [بخش ۳] رابط کاربری با Streamlit
+# ============================
+
+# --- تنظیمات صفحه
 st.set_page_config(page_title="تحلیل پرتفو با سبک‌های مختلف", layout="wide")
+
+# ===================== سایدبار و راهنما
+# نمایش توضیحات اولیه و راهنمای ابزار
 st.sidebar.markdown("## 🧠 تست پروفایل ریسک رفتاری")
+st.sidebar.info(
+    """
+    در این ابزار می‌توانید:
+    - رفتار ریسک شخصی خود را بسنجید.
+    - داده‌های قیمتی دارایی‌های مختلف را (آپلود از فایل یا دریافت آنلاین) بارگذاری کنید.
+    - دارایی‌ها را مدیریت و حذف کنید.
+    - محدودیت‌های وزنی سبد را تعیین کنید.
+    - چندین حالت پرتفوی را مقایسه و تحلیل کنید.      
+    - مدت زمان بازیابی قیمت هر دارایی را (در واحد روز یا ماه) پس از افت و بیش‌ترین افت قیمتی مشاهده کنید.
+    """
+)
+
+# ----- آزمون رفتار ریسک (قسمت ۱)
 with st.sidebar.expander("انجام تست ریسک رفتاری", expanded=True):
+    st.markdown("**با پاسخ به چهار پرسش کوتاه، پروفایل ریسک شما تعیین می‌شود.**")
     q1 = st.radio("اگر ارزش پرتفو شما به طور موقت ۱۵٪ کاهش یابد، چه کار می‌کنید؟", ["سریع می‌فروشم", "نگه می‌دارم", "خرید می‌کنم"], key="risk_q1")
     q2 = st.radio("در یک سرمایه‌گذاری پرریسک با بازده بالا، چه احساسی دارید؟", ["نگران", "بی‌تفاوت", "هیجان‌زده"], key="risk_q2")
     q3 = st.radio("کدام جمله به شما نزدیک‌تر است؟", [
@@ -210,8 +264,12 @@ if "risk_profile" not in st.session_state or "risk_value" not in st.session_stat
     st.warning("⚠️ تست ریسک را کامل کنید.")
     st.stop()
 
+# ------- عنوان اصلی 
 st.title("📊 ابزار تحلیل پرتفو با سبک‌های مختلف")
+
+# ------- تنظیمات کلی (قسمت ۲)
 with st.sidebar.expander("تنظیمات کلی", expanded=True):
+    st.markdown("*در این بخش، بازه زمانی تحلیل و سرمایه اولیه خود را مشخص کنید.*")
     period = st.selectbox("بازه تحلیل بازده", ['ماهانه', 'سه‌ماهه', 'شش‌ماهه'])
     rf = st.number_input("نرخ بدون ریسک سالانه (%)", min_value=0.0, max_value=100.0, value=3.0, step=0.1)
     st.markdown("---")
@@ -225,8 +283,11 @@ with st.sidebar.expander("تنظیمات کلی", expanded=True):
     n_mc = st.slider("تعداد شبیه‌سازی در MC", 250, 4000, 800, 100)
     seed_value = st.number_input("ثابت تصادفی (seed)", 0, 99999, 42)
 
+# ------- آپلود/دانلود داده دارایی‌ها و حذف هرکدام (قسمت ۳)
 with st.sidebar.expander("محدودیت وزن دارایی‌ها :lock:", expanded=True):
-    st.markdown("##### محدودیت وزن هر دارایی")
+    st.markdown(
+        "*در ادامه می‌توانید فایل CSV هر دارایی را جداگانه آپلود کنید یا داده آنلاین دریافت کنید. شما همچنین می‌توانید هر دارایی را حذف کنید تا در تحلیل سبد لحاظ نشود.*"
+    )
     uploaded_files = st.file_uploader("چند فایل CSV آپلود کنید (هر دارایی یک فایل)", type=['csv'], accept_multiple_files=True, key="uploader")
 
     if "deleted_assets" not in st.session_state:
@@ -249,12 +310,7 @@ with st.sidebar.expander("محدودیت وزن دارایی‌ها :lock:", exp
     if "downloaded_dfs" not in st.session_state:
         st.session_state["downloaded_dfs"] = []
     with st.expander("دریافت داده آنلاین 📥"):
-        st.markdown("""
-        <div dir="rtl" style="text-align: right;">
-        <b>راهنما:</b>
-        <br>نمادها را با کاما و بدون فاصله وارد کنید (مثال: <span style="direction:ltr;display:inline-block">BTC-USD,AAPL,ETH-USD</span>)
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown("نمادها را با کاما و بدون فاصله وارد کنید (مثلاً: BTC-USD,AAPL,ETH-USD)")
         tickers_input = st.text_input("نماد دارایی‌ها")
         start = st.date_input("تاریخ شروع", value=pd.to_datetime("2023-01-01"))
         end = st.date_input("تاریخ پایان", value=pd.to_datetime("today"))
@@ -318,12 +374,15 @@ with st.sidebar.expander("محدودیت وزن دارایی‌ها :lock:", exp
         if not is_valid:
             st.warning(weights_msg)
 
+# تعیین رزولوشن زمانی تحلیل و پارامترها
 resample_rule = {'ماهانه': 'M', 'سه‌ماهه': 'Q', 'شش‌ماهه': '2Q'}[period]
 annual_factor = {'ماهانه': 12, 'سه‌ماهه': 4, 'شش‌ماهه': 2}[period]
 user_risk = st.sidebar.slider("ریسک هدف پرتفو (انحراف معیار سالانه)", 0.01, 1.0, float(st.session_state.get("risk_value", 0.25)), 0.01)
 cvar_alpha = st.sidebar.slider("سطح اطمینان CVaR", 0.80, 0.99, 0.95, 0.01)
 
+# ========= تحلیل سبد پرتفو (اصلی)
 if is_all_assets_valid(all_assets):
+    st.info("در جدول زیر آخرین داده‌های قیمت دارایی‌ها را مشاهده می‌کنید. سپس می‌توانید پرتفوها را بر اساس سبک‌های مختلف تحلیل کنید و همچنین متریک‌های بازیابی و افت هر دارایی را مشاهده نمایید.", icon="📃")
     prices_df = pd.DataFrame()
     for name, df in all_assets:
         if df is None or 'Date' not in df.columns or 'Price' not in df.columns:
@@ -342,6 +401,7 @@ if is_all_assets_valid(all_assets):
     st.subheader("🧪 پیش‌نمایش داده‌ها")
     st.dataframe(prices_df.tail())
 
+    # تنظیمات بیمه (اختیاری)
     insured_assets = {}
     for name in asset_names:
         st.sidebar.markdown(f"---\n### ⚙️ تنظیمات بیمه برای دارایی: `{name}`")
@@ -362,6 +422,7 @@ if is_all_assets_valid(all_assets):
                 'base': asset_amount
             }
 
+    # محاسبه بازده‌ها و کوواریانس و تنظیم وزن‌ها و… (بدون تغییر)
     resampled_prices = prices_df.resample(resample_rule).last().dropna()
     returns = resampled_prices.pct_change().dropna()
     mean_returns = returns.mean() * annual_factor
@@ -392,6 +453,7 @@ if is_all_assets_valid(all_assets):
         st.error("محدودیت‌های وزن دارایی‌ها اشتباه تعریف شده است.")
         st.stop()
 
+    # شبیه‌سازی پرتفوها و محاسبات آماری آنها
     for i in range(n_portfolios):
         weights = np.random.random(len(asset_names)) * preference_weights
         weights /= np.sum(weights)
@@ -417,6 +479,7 @@ if is_all_assets_valid(all_assets):
         results[4, i] = -CVaR
         results[5:, i] = weights
 
+    # محاسبه سبک‌های پرتفو و آمار آنها (بدون تغییر)
     best_idx = np.argmin(np.abs(results[1] - user_risk))
     best_weights = results[5:, best_idx]
     cvar_idx = np.nanargmin(results[4])
@@ -443,7 +506,10 @@ if is_all_assets_valid(all_assets):
     }
     min_percent_for_pie = 0.1
 
+    # ======================== نمایش سبک‌های پرتفو و جدول‌های مختلف
     st.subheader(":rocket: اطلاعات سبد و نمودار دایره‌ای سبک‌ها")
+    st.markdown("*در این بخش ترکیب وزنی پرتفوی در سبک‌های مختلف را مشاهده و مقایسه کنید. تمام سودها به دلار و بر اساس مقدار سرمایه انتخابی هستند.*")
+
     gains_table = {}
     periods = [('سالانه', 1), ('سه‌ماهه', 3/12), ('دوماهه', 2/12), ('یک‌ماهه', 1/12)]
     for style, weights in style_dict.items():
@@ -476,11 +542,14 @@ if is_all_assets_valid(all_assets):
         gains_table[style] = gain_row
         st.markdown("---")
 
+    # جدول مقایسه سود سبک‌ها
     col_gains = ['سالانه', 'سه‌ماهه', 'دوماهه', 'یک‌ماهه']
     st.subheader("📋 جدول مقایسه سود دلاری سبک‌ها")
+    st.markdown("*در این جدول سود پرتفوها بر اساس سبک، در بازه‌های تحلیلی مختلف، مقایسه شده است.*")
     gains_df = pd.DataFrame(gains_table, index=col_gains)
     st.dataframe(gains_df.T, use_container_width=True)
 
+    # نمودار میله‌ای سود در بازه‌های مختلف
     st.subheader("📈 مقایسه دلاری سبک‌ها در هر بازه (Bar Chart)")
     for i, period in enumerate(col_gains):
         fig_bar = go.Figure()
@@ -497,14 +566,18 @@ if is_all_assets_valid(all_assets):
         )
         st.plotly_chart(fig_bar, use_container_width=True)
 
+    # جدول مقایسه وزن‌های پرتفو
     st.subheader("📋 جدول مقایسه وزن دارایی‌ها")
+    st.markdown("*در این جدول ترکیب وزنی هر دارایی در هر سبک پرتفوی قابل مشاهده است.*")
     compare_dict = {"دارایی": asset_names}
     for style, weights in style_dict.items():
         compare_dict[style] = [w*100 for w in weights]
     df_compare = pd.DataFrame(compare_dict)
     st.dataframe(df_compare.set_index("دارایی"), use_container_width=True)
 
+    # نمودار مرز کارا برای سبک‌ها
     st.subheader("🌈 مرز کارا پرتفوها (سبک‌ها)")
+    st.markdown("*در نمودارهای زیر، پراکندگی سود/ریسک پرتفوی‌ها و نقطه بهینه هر سبک نمایش داده شده است.*")
     for style in style_keys:
         st.markdown(f"#### مرز کارا: {style}")
         if style in ['مونت‌کارلو', f'CVaR {int(cvar_alpha*100)}%']:
@@ -551,8 +624,11 @@ if is_all_assets_valid(all_assets):
             )
             st.plotly_chart(fig, use_container_width=True)
 
-    # پیش‌بینی قیمت برای 3/2/1 ماهه برای هر دارایی + recovery time
+    # ================== پیش‌بینی و تحلیل بازده/بازیابی دارایی‌ها
     st.subheader("🔮 پیش‌بینی قیمت و بازده آتی هر دارایی")
+    st.markdown(
+        "برای هر دارایی، شبیه‌سازی بازده آتی (در یک تا سه دوره) و همچنین **حداکثر مدت زمان بازیابی قیمت پس از افت** (در واحد زمانی داده) و **بزرگترین افت قیمتی** نمایش داده می‌شود."
+    )
     prediction_periods = [("سه‌ماهه (۳ ماه)", 3), ("دو ماهه", 2), ("یک ماهه", 1)]
     for i, name in enumerate(asset_names):
         last_price = resampled_prices[name].iloc[-1]
@@ -587,14 +663,14 @@ if is_all_assets_valid(all_assets):
                 st.plotly_chart(fig_pred, use_container_width=True)
                 st.markdown(f"📈 **میانگین:** `{future_price_mean:.2f}`")
                 st.markdown(f"📊 **بازده:** `{future_return:.2%}`")
-        # نمایش Recovery Time و Max Drawdown -- رفع خطا در این قسمت:
+        # محاسبه duration و افت:
         this_prices = resampled_prices[[name]].reset_index()
         this_prices = this_prices.rename(columns={name: "Price"})
         recovery_times, max_recovery_time, max_drawdown = calculate_drawdown_recovery(this_prices)
         st.info(
-            f"⏳ بیشترین مدت بازیابی پس از افت: **{max_recovery_time} دوره**\n\n"
+            f"⏳ بیشترین مدت بازیابی پس از افت: **{format_recovery_time(max_recovery_time, period)}**\n\n"
             f"📉 بیشترین افت قیمتی (Max Drawdown): **{max_drawdown:.2%}**\n"
-            + (f"🧮 میانگین زمان بازیابی: **{np.mean(recovery_times):.1f} دوره**" if recovery_times else "")
+            + (f"🧮 میانگین زمان بازیابی: **{format_recovery_time(int(np.mean(recovery_times)), period)}**" if recovery_times else "")
         )
         st.markdown("---")
 
