@@ -1,5 +1,5 @@
-# ابزار تحلیلی پرتفوی با حذف دارایی، نمایش drawdown/recovery و کامنت کامل + توضیحات کاربر
-# نویسنده: mohammadmarghzari و Copilot
+# ابزار تحلیل پرتفو با حذف دارایی‌ها، بیمه دارایی، نمایش Drawdown/RecoveryTime باواحد صحیح و کامنت‌گذاری کامل
+# نویسنده: mohammadmarghzari + Copilot کامل
 
 import streamlit as st
 import pandas as pd
@@ -9,11 +9,11 @@ import plotly.express as px
 import yfinance as yf
 import scipy.optimize as sco
 
-# ======= تنظیمات فونت کلی Streamlit با CSS (Vazirmatn اگر روی سیستم یا هاست هست) =======
+# ======= استایل فونت + دکمه حذف
 st.markdown("""
     <style>
     html, body, [class*="css"]  {
-        font-family: "Vazirmatn", "IranYekan", "Tahoma", sans-serif !important;
+        font-family: "Vazirmatn", "IRANYekan", "Tahoma", sans-serif !important;
     }
     .asset-delete-btn {
         color: #fff !important;
@@ -31,9 +31,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# ============================
-# [بخش ۱] توابع کمکی (Utils) (عین قبل + یک تابع helper جدید برای توصیف بازه زمانی)
-# ============================
+# ------------------ Utils -------------------
 def get_price_dataframe_from_yf(data, ticker):
     try:
         if isinstance(data.columns, pd.MultiIndex):
@@ -97,6 +95,53 @@ def get_time_unit_and_format(period, freq):
     else:
         return "روز", "%Y-%m-%d"
 
+# تابع محاسبه Drawdown و Recovery (همراه تاریخ شروع و پایان recovery)
+def calculate_drawdown_recovery(df, period_unit):
+    df = df.sort_values("Date").reset_index(drop=True)
+    prices = df['Price'].values
+    dates = pd.to_datetime(df['Date']).values
+    peak = prices[0]
+    recovery_infos = [] # هر ریکاوری: (index_start, index_min, index_end)
+    max_drawdown_info = None
+    i = 0
+    while i < len(prices):
+        if prices[i] >= peak:
+            peak = prices[i]
+            peak_idx = i
+            i += 1
+            continue
+        drawdown_start_idx = i - 1
+        drawdown_start_date = dates[drawdown_start_idx]
+        min_price = prices[i]
+        min_idx = i
+        while i < len(prices) and prices[i] < peak:
+            if prices[i] < min_price:
+                min_price = prices[i]
+                min_idx = i
+            i += 1
+        # حالا i اولین جایی است که قیمت ≥ peak مجدد (یا انتهای دیتا)
+        if i < len(prices):  # یعنی ریکاوری کامل شد
+            recovery_end_idx = i
+            duration = recovery_end_idx - drawdown_start_idx
+            drawdown = (peak - min_price) / peak
+            recovery_infos.append({
+                "start_idx": drawdown_start_idx,
+                "start_date": dates[drawdown_start_idx],
+                "min_idx": min_idx,
+                "min_date": dates[min_idx],
+                "end_idx": recovery_end_idx,
+                "end_date": dates[recovery_end_idx],
+                "duration": duration,
+                "drawdown": drawdown
+            })
+            if max_drawdown_info is None or drawdown > max_drawdown_info['drawdown']:
+                max_drawdown_info = recovery_infos[-1]
+    return recovery_infos, max_drawdown_info
+
+# تبدیل بازه تاریخ به متن فارسی با واحد دوره
+def pretty_time_period(start, end, duration, unit):
+    return f"""<b>{duration} {unit}</b> (<span style='color:#0097e6'>{start}</span> تا <span style='color:#0097e6'>{end}</span>)"""
+
 def compact_pie_weights(asset_names, weights, min_percent=0.1):
     weights_percent = 100 * np.array(weights)
     shown_assets, shown_weights = [], []
@@ -148,7 +193,6 @@ def equally_weighted_weights(n):
 def portfolio_stats(weights, mean_returns, cov_matrix, returns, rf, annual_factor):
     mean_m = mean_returns / annual_factor
     cov_m = cov_matrix / annual_factor
-
     port_ann_return = np.dot(weights, mean_returns)
     port_ann_vol = np.sqrt(np.dot(weights.T, np.dot(cov_matrix, weights)))
     downrets = returns.copy(); downrets[downrets > 0] = 0
@@ -166,62 +210,13 @@ def portfolio_stats(weights, mean_returns, cov_matrix, returns, rf, annual_facto
     stats['sharpe'] = sharpe; stats['sortino'] = sortino
     return stats
 
-# ============================
-# [بخش ۲] محاسبه بازه‌های ریکاوری و Drawdown همراه تاریخ دقیق شروع و پایان
-# ============================
-def calculate_drawdown_recovery(df):
-    df = df.sort_values("Date").reset_index(drop=True)
-    prices = df['Price'].values
-    dates = df['Date'].values
-    peak = prices[0]
-    recovery_infos = [] # هر عضو: (تاریخ شروع, تاریخ پایان, مدت زمان, مقدار drawdown)
-    max_drawdown_info = None
-    i = 0
-    while i < len(prices):
-        if prices[i] >= peak:
-            peak = prices[i]
-            i += 1
-            continue
-        drawdown_start_idx = i - 1
-        drawdown_start_date = dates[drawdown_start_idx]
-        min_price = prices[i]
-        min_idx = i
-        while i < len(prices) and prices[i] < peak:
-            if prices[i] < min_price:
-                min_price = prices[i]
-                min_idx = i
-            i += 1
-        recovery_end_idx = i-1
-        if i < len(prices):  # ریکاوری انجام شده
-            recovery_time = i - drawdown_start_idx - 1
-            drawdown = (peak - min_price) / peak
-            recovery_infos.append({
-                "start_idx": drawdown_start_idx,
-                "end_idx": i-1,
-                "start_date": str(pd.to_datetime(drawdown_start_date).date()),
-                "end_date": str(pd.to_datetime(dates[i-1]).date()),
-                "duration": recovery_time,
-                "drawdown": drawdown,
-                "min_idx": min_idx,
-            })
-            if max_drawdown_info is None or drawdown > max_drawdown_info["drawdown"]:
-                max_drawdown_info = recovery_infos[-1]
-    return recovery_infos, max_drawdown_info
-
-# فرمت بازه زمانی به متن فارسی زیبا
-def pretty_time_period(start, end, duration, unit):
-    return f"""<span style="font-weight:bold">{duration} {unit}</span> &nbsp;از <span style='color:#0097e6'>{start}</span> تا <span style='color:#0097e6'>{end}</span>"""
-
-# ============================
-# [بخش ۳] رابط کاربری Streamlit (کامنت/راهنمای کامل)
-# ============================
+# ================== Streamlit SECTION ==================
 st.set_page_config(page_title="تحلیل پرتفو با سبک‌های مختلف", layout="wide")
-st.markdown("<h1 style='font-family:Vazirmatn; color: #2980b9;'>ابزار تحلیل پرتفو و مدیریت دارایی</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='font-family:Vazirmatn; color: #2980b9;'>ابزار تحلیل پرتفو، بازیابی، بیمه و مدیریت حذف دارایی</h1>", unsafe_allow_html=True)
 
-# ---------- تست ریسک رفتاری
-st.sidebar.markdown("## 🎯 تست رفتار ریسک کاربر")
-st.sidebar.info("با انجام تست ریسک، میزان تمایل شما به ریسک مشخص شده و سبک بهینه برای پرتفوی پیشنهاد می‌شود.")
-with st.sidebar.expander("تست ریسک رفتاری"):
+# -- رییسک رفتاری
+st.sidebar.markdown("## 🎯 تست رفتار ریسک")
+with st.sidebar.expander("تست سنجش رفتار ریسک"):
     q1 = st.radio("اگر ارزش پرتفو شما موقتاً ۱۵٪ کاهش یابد…", ["سریع می‌فروشم", "نگه می‌دارم", "خرید می‌کنم"], key="risk_q1")
     q2 = st.radio("در سرمایه‌گذاری پرریسک با بازده بالا چه احساسی دارید؟", ["نگران", "بی‌تفاوت", "هیجان‌زده"], key="risk_q2")
     q3 = st.radio("کدام جمله به شما نزدیک‌تر است؟", [
@@ -265,9 +260,7 @@ if "risk_profile" not in st.session_state or "risk_value" not in st.session_stat
     st.warning("⚠️ تست ریسک را کامل کنید.")
     st.stop()
 
-# ---------- تنظیمات کلی ابزار
 with st.sidebar.expander("⚙️ تنظیمات کلی"):
-    st.markdown("نوع بازه زمانی تحلیل (ماهانه/سه‌ماهه/شش‌ماهه) و سرمایه را انتخاب نمایید.")
     period = st.selectbox("بازه تحلیل", ['ماهانه', 'سه‌ماهه', 'شش‌ماهه'])
     rf = st.number_input("نرخ بدون ریسک سالانه (%)", min_value=0.0, max_value=100.0, value=3.0, step=0.1)
     st.markdown("---")
@@ -277,10 +270,9 @@ with st.sidebar.expander("⚙️ تنظیمات کلی"):
     n_mc = st.slider("تعداد سیمولیشن مونت‌کارلو", 200, 4000, 800, 100)
     seed_value = st.number_input("ثابت تصادفی (seed)", 0, 99999, 42)
 
-# ---------- مدیریت دارایی‌ها (آپلود و دانلود و حذف)
+# ---- مدیریت دارایی (آپلود و دانلود و حذف با ظاهر زیبا)
 with st.sidebar.expander("🗃️ مدیریت دارایی‌ها"):
-    st.markdown("آپلود فایل CSV هر دارایی (ستون date, price) یا بارگذاری آنلاین از یاهوفایننس.")
-    uploaded_files = st.file_uploader("آپلود دارایی‌ها", type=['csv'], accept_multiple_files=True, key="uploader")
+    uploaded_files = st.file_uploader("آپلود دارایی‌ها (CSV)", type=['csv'], accept_multiple_files=True, key="uploader")
     if "deleted_assets" not in st.session_state:
         st.session_state["deleted_assets"] = set()
     deleted_assets = st.session_state["deleted_assets"]
@@ -297,7 +289,7 @@ with st.sidebar.expander("🗃️ مدیریت دارایی‌ها"):
                 asset_read_errors.append(f"{file.name}: {err}")
     if "downloaded_dfs" not in st.session_state:
         st.session_state["downloaded_dfs"] = []
-    with st.expander("دریافت داده آنلاین"):
+    with st.expander("دریافت آنلاین"):
         st.markdown("مثال: BTC-USD,AAPL,ETH-USD ")
         tickers_input = st.text_input("نماد دارایی‌ها")
         start = st.date_input("تاریخ شروع", value=pd.to_datetime("2023-01-01"))
@@ -327,15 +319,13 @@ with st.sidebar.expander("🗃️ مدیریت دارایی‌ها"):
         for t, df in st.session_state["downloaded_dfs"]:
             if t not in deleted_assets:
                 all_assets.append((t, df))
-    # --- زیباتر کردن حذف دارایی با المان HTML ---
-    st.markdown("#### <span style='color:#6091b3;font-weight:bold'>🔎 لیست دارایی‌ها و حذف هرکدام:</span>", unsafe_allow_html=True)
+    st.markdown("#### <span style='color:#6091b3;font-weight:bold'>لیست دارایی و حذف:</span>", unsafe_allow_html=True)
     assets_to_remove = []
     for idx, (name, df) in enumerate(all_assets):
-        col1, col2 = st.columns([5,1])
+        col1, col2 = st.columns([6,1])
         with col1:
             st.markdown(f"<div style='font-size:15px'>{idx+1}. <b>{name}</b></div>", unsafe_allow_html=True)
         with col2:
-            # دکمه حذف با سبک زیبا و ایموجی سطل آشغال 
             rm_btn = st.button(f"🗑️ حذف", key=f"remove_asset_{name}", help="حذف این دارایی", type="secondary")
             if rm_btn:
                 assets_to_remove.append(name)
@@ -344,6 +334,7 @@ with st.sidebar.expander("🗃️ مدیریت دارایی‌ها"):
             deleted_assets.add(name)
         st.experimental_rerun()
     for err in asset_read_errors: msg(f"⚠️ {err}", "warning")
+
     # محدودیت وزن دارایی‌ها
     asset_min_weights = {}
     asset_max_weights = {}
@@ -357,15 +348,14 @@ with st.sidebar.expander("🗃️ مدیریت دارایی‌ها"):
         if not is_valid:
             st.warning(weights_msg)
 
-# --- سایر پارامترهای تحلیلی
+# --- رزولوشن بازه زمانی برای تحلیل و واحد زمانی
 resample_rule = {'ماهانه': 'M', 'سه‌ماهه': 'Q', 'شش‌ماهه': '2Q'}[period]
 annual_factor = {'ماهانه': 12, 'سه‌ماهه': 4, 'شش‌ماهه': 2}[period]
 user_risk = st.sidebar.slider("ریسک هدف پرتفو (انحراف معیار سالانه)", 0.01, 1.0, float(st.session_state.get("risk_value", 0.25)), 0.01)
 cvar_alpha = st.sidebar.slider("سطح اطمینان CVaR", 0.80, 0.99, 0.95, 0.01)
 
-# =================== تحلیل نهایی اگر داده معتبر وجود داشته باشد ===================
+# =================== تحلیل پرتفو فقط اگر داده کافی باشد
 if is_all_assets_valid(all_assets):
-    st.markdown("<h3 style='color:#0a3d62;'>🧪 پیش‌نمایش داده‌ها</h3>", unsafe_allow_html=True)
     prices_df = pd.DataFrame()
     for name, df in all_assets:
         if df is None or 'Date' not in df.columns or 'Price' not in df.columns:
@@ -381,75 +371,136 @@ if is_all_assets_valid(all_assets):
     if prices_df.empty or len(asset_names) == 0:
         st.error("❌ داده‌ی معتبری برای تحلیل یافت نشد - لطفاً داده‌های معتبر وارد کنید.")
         st.stop()
+    st.subheader("🧪 پیش‌نمایش داده‌ها")
     st.dataframe(prices_df.tail(), use_container_width=True)
 
-    # ... (ادامه همه تحلیل‌ها مثل قبل) ...
+    # ---------------- بیمه دارایی‌ها + کاهش ریسک آنها در پرتفوی
+    insured_assets = {}
+    for name in asset_names:
+        st.sidebar.markdown(f"---\n### ⚙️ بیمه `{name}`")
+        insured = st.sidebar.checkbox(f"فعالسازی بیمه برای {name}", key=f"insured_{name}")
+        if insured:
+            loss_percent = st.sidebar.number_input(f"📉 درصد کاهش (حد ضرر بیمه)", 0.0, 100.0, 30.0, step=0.01, key=f"loss_{name}")
+            insured_assets[name] = {'loss_percent': loss_percent}
+    st.sidebar.markdown("**نکته:** بیمه ریسک هر دارایی را به نسبت درصد بیمه کاهش می‌دهد و اثر آن در ریسک نهایی محاسبه می‌شود.")
 
-    # تحلیل شبیه‌سازی پرتفو و ... (تا قبل از نمایش drawdown/recovery مانند قبل)
-    # ...
-    # نمایش پیش‌بینی و بازیابی برای هر دارایی:
-    st.subheader("🔮 پیش‌بینی قیمت و جزئیات ریکاوری تایم/افت برای هر دارایی")
-    st.markdown("**در هر دارایی، بازه زمانی و مدت دقیق طولانی‌ترین بازیابی پس از افت و میانگین ریکاوری‌ها به واحد زمانی خود داده نمایش داده می‌شود.**")
-    prediction_periods = [("سه‌ماهه (۳ ماه)", 3), ("دو ماهه", 2), ("یک ماهه", 1)]
-    time_unit, dt_format = get_time_unit_and_format(period, resample_rule)
+    # ---- محاسبات پرتفو و وزن‌ها با اعمال بیمه
+    resampled_prices = prices_df.resample(resample_rule).last().dropna()
+    returns = resampled_prices.pct_change().dropna()
+    mean_returns = returns.mean() * annual_factor
+    cov_matrix = returns.cov() * annual_factor
+    std_devs = np.sqrt(np.diag(cov_matrix))
+
+    adjusted_cov = cov_matrix.copy()
+    for i, name in enumerate(asset_names):
+        if name in insured_assets:
+            risk_scale = 1 - insured_assets[name]['loss_percent'] / 100
+            adjusted_cov.iloc[i, :] *= risk_scale
+            adjusted_cov.iloc[:, i] *= risk_scale
+    # محاسبه وزن ترجیحی (وزن‌دهی بیشتر به دارایی با بیمه بیشتر ریسک‌کاسته)
+    preference_weights = []
+    for i, name in enumerate(asset_names):
+        risk_scale = 1.0
+        if name in insured_assets:
+            risk_scale = 1 - insured_assets[name]['loss_percent'] / 100
+        preference_weights.append(1 / max(std_devs[i] * risk_scale**0.7, 1e-4))
+    preference_weights = np.array(preference_weights)
+    preference_weights /= np.sum(preference_weights)
+
+    np.random.seed(seed_value)
+    results = np.zeros((5 + len(asset_names), n_portfolios))
+    downside = returns.copy(); downside[downside > 0] = 0
+
+    min_weights_arr = np.array([asset_min_weights.get(name, 0)/100 for name in asset_names])
+    max_weights_arr = np.array([asset_max_weights.get(name, 100)/100 for name in asset_names])
+    valid_minmax, _ = validate_weights(asset_min_weights, asset_max_weights, asset_names)
+    if not valid_minmax:
+        st.error("محدودیت‌های وزن دارایی‌ها اشتباه تعریف شده است.")
+        st.stop()
+
+    for i in range(n_portfolios):
+        weights = np.random.random(len(asset_names)) * preference_weights
+        weights /= np.sum(weights)
+        weights = min_weights_arr + (max_weights_arr - min_weights_arr) * weights
+        weights /= np.sum(weights)
+        if np.sum(min_weights_arr) > 1:
+            weights = min_weights_arr / np.sum(min_weights_arr)
+        port_return = np.dot(weights, mean_returns)
+        port_std = np.sqrt(np.dot(weights.T, np.dot(adjusted_cov, weights)))
+        downside_risk = np.sqrt(np.dot(weights.T, np.dot(downside.cov() * annual_factor, weights)))
+        sharpe_ratio = (port_return - rf/100) / (port_std if port_std!=0 else np.nan)
+        sortino_ratio = (port_return - rf/100) / (downside_risk if downside_risk>0 else np.nan)
+
+        mc_sims = np.random.multivariate_normal(mean_returns/annual_factor, adjusted_cov/annual_factor, n_mc)
+        port_mc_returns = np.dot(mc_sims, weights)
+        VaR = np.percentile(port_mc_returns, (1 - cvar_alpha) * 100)
+        CVaR = port_mc_returns[port_mc_returns <= VaR].mean() if np.any(port_mc_returns <= VaR) else VaR
+
+        results[0, i] = port_return
+        results[1, i] = port_std
+        results[2, i] = sharpe_ratio
+        results[3, i] = sortino_ratio
+        results[4, i] = -CVaR
+        results[5:, i] = weights
+
+    best_idx = np.argmin(np.abs(results[1] - user_risk))
+    best_weights = results[5:, best_idx]
+    cvar_idx = np.nanargmin(results[4])
+    cvar_weights = results[5:, cvar_idx]
+    bounds = [(asset_min_weights.get(name,0)/100, asset_max_weights.get(name,100)/100) for name in asset_names]
+    w_mvp = opt_min_variance(mean_returns, cov_matrix, bounds)
+    w_sharpe = opt_max_sharpe(mean_returns, cov_matrix, rf/100, bounds)
+    w_eq = equally_weighted_weights(len(asset_names))
+
+    style_dict = {
+        'مونت‌کارلو': best_weights,
+        f'CVaR {int(cvar_alpha*100)}%': cvar_weights,
+        'مینیمم واریانس': w_mvp if w_mvp is not None else np.zeros(len(asset_names)),
+        'ماکزیمم شارپ': w_sharpe if w_sharpe is not None else np.zeros(len(asset_names)),
+        'وزن برابر': w_eq
+    }
+    style_keys = list(style_dict.keys())
+    color_map = {
+        'مونت‌کارلو': '#03a678',
+        f'CVaR {int(cvar_alpha*100)}%': '#d35400',
+        'مینیمم واریانس': '#8e44ad',
+        'ماکزیمم شارپ': '#34495e',
+        'وزن برابر': "#7ed6a5"
+    }
+
+    # ----------- نمایش اطلاعات هر دارایی و ریکاوری‌تایم
+    st.subheader("🔮 پیش‌بینی قیمت و ریکاوری تایم بر اساس داده و اعمال بیمه")
+    unit_time, dt_format = get_time_unit_and_format(period, resample_rule)
     for i, name in enumerate(asset_names):
         last_price = prices_df[name].iloc[-1]
-        mu = (prices_df[name].pct_change().dropna().mean() * annual_factor)
-        sigma = (prices_df[name].pct_change().dropna().std() * np.sqrt(annual_factor))
         st.markdown(f"<span style='font-family:Vazirmatn; font-size:20px; color:#34495e'><b>{name}</b></span>", unsafe_allow_html=True)
-        # بخش پیش‌بینی معمول
-        cols = st.columns(len(prediction_periods))
-        for j, (label, future_months) in enumerate(prediction_periods):
-            sim_prices = []
-            n_sim = 400
-            for _ in range(n_sim):
-                sim = last_price * np.exp(np.cumsum(np.random.normal(mu/annual_factor, sigma/np.sqrt(annual_factor), future_months)))
-                sim_prices.append(sim[-1])
-            sim_prices = np.array(sim_prices)
-            future_price_mean = np.mean(sim_prices)
-            future_return = (future_price_mean - last_price) / last_price
-            with cols[j]:
-                fig_pred = go.Figure()
-                fig_pred.add_trace(go.Histogram(x=sim_prices, nbinsx=20, name="پیش‌بینی قیمت", marker_color='purple'))
-                fig_pred.add_vline(x=future_price_mean, line_dash="dash", line_color="green")
-                fig_pred.update_layout(
-                    title=f"{label}",
-                    xaxis_title="قیمت انتهایی", 
-                    yaxis_title="تعداد شبیه‌سازی", 
-                    font_family="Vazirmatn", 
-                    title_font_size=15, height=220
-                )
-                st.plotly_chart(fig_pred, use_container_width=True)
-                st.markdown(f"<span style='color:#148f77;font-weight:bold;'>میانگین:</span> <span style='font-size:16px'>{future_price_mean:.2f}</span>", unsafe_allow_html=True)
-                st.markdown(f"<span style='color:#884ea0;font-weight:bold;'>بازده:</span> <span style='font-size:16px'>{future_return:.2%}</span>", unsafe_allow_html=True)
-        # نمایش details ریکاوری تایم و بیشترین افت
+        # ---------- drawdown & recovery
         this_prices = prices_df[[name]].reset_index()
         this_prices = this_prices.rename(columns={name: "Price"})
-        recovery_infos, max_drawdown_info = calculate_drawdown_recovery(this_prices)
-        # بزرگترین drawdown (و بازیابی) با جزییات تاریخ/مدت
+        recovery_infos, max_drawdown_info = calculate_drawdown_recovery(this_prices, unit_time)
+        # نمایش اطلاعات recovery
         if max_drawdown_info:
+            start_cal = pd.to_datetime(max_drawdown_info['start_date']).strftime(dt_format)
+            end_cal = pd.to_datetime(max_drawdown_info['end_date']).strftime(dt_format)
             st.markdown(
-                f"""<div style='margin-top:10px'>
-                    <span style='color:#ff6f00; font-weight:500'>⏳ طولانی‌ترین زمان بازیابی قیمت :</span>
-                    {pretty_time_period(
-                        pd.to_datetime(max_drawdown_info['start_date']).strftime(dt_format),
-                        pd.to_datetime(max_drawdown_info['end_date']).strftime(dt_format),
-                        max_drawdown_info['duration'],
-                        time_unit
-                    )}
-                </div>
-                <div style='margin-bottom:3px'><span style='color:#7f8c8d'>از افت <b>{max_drawdown_info['drawdown']:.2%}</b> (سقف تا کف) طی این بازه</span></div>""",
+                f"<span style='color:#ff6f00; font-weight:500'>⏳ طولانی‌ترین بازیابی:</span> "
+                f"{pretty_time_period(start_cal, end_cal, max_drawdown_info['duration'], unit_time)}<br>"
+                f"💧 <b>افت:</b> <span style='color:#b71c1c'>{max_drawdown_info['drawdown']:.2%}</span>", 
                 unsafe_allow_html=True
             )
         else:
-            st.markdown("<div style='color:#2d3436;margin:5px 0;font-size:15px'>در این بازه داده نیاز به ریکاوری مشاهده نشد.</div>", unsafe_allow_html=True)
-        # میانگین همه ریکاوری‌ها
+            st.markdown("<span style='color:#2d3436;font-size:15px'>هیچ ریکاوری در این بازه نیاز نبود.</span>", unsafe_allow_html=True)
+        # میانگین
         if recovery_infos:
             mean_duration = np.mean([r["duration"] for r in recovery_infos])
             st.markdown(
-                f"<div style='color:#00b894'>🧮 میانگین زمان ریکاوری: <b>{mean_duration:.1f} {time_unit}</b></div>",
-                unsafe_allow_html=True
+                f"<span style='color:#009432'>🧮 <b>میانگین بازیابی:</b> {mean_duration:.1f} {unit_time}</span>", unsafe_allow_html=True
             )
+        else:
+            st.markdown(f"<span style='color:#00b894'>این دارایی دوره ریکاوری نداشته است.</span>", unsafe_allow_html=True)
+        # توضیح بیمه:
+        if name in insured_assets:
+            st.markdown(f"<span style='color:#273c75'><b>این دارایی بیمه شده 👒</b> (ریسک: ×{(1-insured_assets[name]['loss_percent']/100):.2f})</span>", unsafe_allow_html=True)
         st.markdown("---", unsafe_allow_html=True)
 else:
     st.warning("⚠️ ابتدا فایل یا داده معتبر بارگذاری کنید.")
