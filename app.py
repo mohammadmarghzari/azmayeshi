@@ -128,6 +128,44 @@ def portfolio_stats(weights, mean_returns, cov_matrix, returns, rf, annual_facto
     stats['sharpe'] = sharpe; stats['sortino'] = sortino
     return stats
 
+# ------------------ Drawdown Recovery Utils -------------------
+def calculate_drawdown_recovery(df):
+    """
+    df: DataFrame با ستون‌های 'Date' و 'Price'
+    خروجی: recovery_times: لیست مدت زمان (تعداد دوره) هر ریکاوری
+    و رکورد بزرگترین بازیابی
+    """
+    df = df.sort_values("Date").reset_index(drop=True)
+    prices = df['Price'].values
+    peak = prices[0]
+    recovery_times = []
+    max_drawdown = 0
+    max_recovery_time = 0
+    i = 0
+    while i < len(prices):
+        # دنبال new peak می‌گردیم
+        if prices[i] >= peak:
+            peak = prices[i]
+            i += 1
+            continue
+        # وارد دوره ریکاوری شدیم (افت کرده)
+        drawdown_start = i - 1
+        min_price = prices[i]
+        while i < len(prices) and prices[i] < peak:
+            if prices[i] < min_price:
+                min_price = prices[i]
+            i += 1
+        recovery_time = i - drawdown_start - 1  # فاصله تا بازیابی
+        if recovery_time > 0:
+            recovery_times.append(recovery_time)
+            if recovery_time > max_recovery_time:
+                max_recovery_time = recovery_time
+            # بزرگی افت هم می‌شود:
+            drawdown = (peak - min_price) / peak
+            if drawdown > max_drawdown:
+                max_drawdown = drawdown
+    return recovery_times, max_recovery_time, max_drawdown
+
 # ---------------- Streamlit App -----------------
 st.set_page_config(page_title="تحلیل پرتفو با سبک‌های مختلف", layout="wide")
 st.sidebar.markdown("## 🧠 تست پروفایل ریسک رفتاری")
@@ -193,15 +231,26 @@ with st.sidebar.expander("تنظیمات کلی", expanded=True):
 with st.sidebar.expander("محدودیت وزن دارایی‌ها :lock:", expanded=True):
     st.markdown("##### محدودیت وزن هر دارایی")
     uploaded_files = st.file_uploader("چند فایل CSV آپلود کنید (هر دارایی یک فایل)", type=['csv'], accept_multiple_files=True, key="uploader")
+
+    # حذف دارایی: پیاده‌سازی اینجا و پس از آپلود/دانلود
+    if "deleted_assets" not in st.session_state:
+        st.session_state["deleted_assets"] = set()
+    deleted_assets = st.session_state["deleted_assets"]
+
+    # همه دارایی‌های آپلودشده
     all_assets = []
     asset_read_errors = []
     if uploaded_files:
         for file in uploaded_files:
+            asset_name = file.name.split('.')[0]
+            if asset_name in deleted_assets:
+                continue
             df, err = read_csv_file(file)
             if df is not None:
-                all_assets.append((file.name.split('.')[0], df))
+                all_assets.append((asset_name, df))
             else:
                 asset_read_errors.append(f"{file.name}: {err}")
+
     if "downloaded_dfs" not in st.session_state:
         st.session_state["downloaded_dfs"] = []
     with st.expander("دریافت داده آنلاین 📥"):
@@ -224,6 +273,8 @@ with st.sidebar.expander("محدودیت وزن دارایی‌ها :lock:", exp
             else:
                 new_downloaded = []
                 for t in tickers:
+                    if t in deleted_assets:
+                        continue
                     df, err = get_price_dataframe_from_yf(data, t)
                     if df is not None and not df.empty and not df["Price"].isna().all():
                         df['Date'] = pd.to_datetime(df['Date'])
@@ -235,7 +286,26 @@ with st.sidebar.expander("محدودیت وزن دارایی‌ها :lock:", exp
         except Exception as ex:
             msg(f"خطا در دریافت داده: {ex}", "error")
     if st.session_state.get("downloaded_dfs"):
-        all_assets.extend(st.session_state["downloaded_dfs"])
+        # فقط دارایی‌های حذف نشده را بیاور
+        for t, df in st.session_state["downloaded_dfs"]:
+            if t not in deleted_assets:
+                all_assets.append((t, df))
+
+    # نمایش لیست دارایی‌ها با حذف
+    st.markdown("#### لیست دارایی‌های فعلی")
+    remove_col1, remove_col2 = st.columns([2,1])
+    assets_to_remove = []
+    for idx, (name, df) in enumerate(all_assets):
+        with remove_col1:
+            st.write(f"{idx+1}. {name}")
+        with remove_col2:
+            if st.button(f"حذف {name}", key=f"remove_asset_{name}"):
+                assets_to_remove.append(name)
+    # حذف دارایی‌ها از session و لیست
+    if assets_to_remove:
+        for name in assets_to_remove:
+            deleted_assets.add(name)
+        # در آپدیت بعدی صفحه اعمال می‌شود
 
     for err in asset_read_errors:
         msg(f"⚠️ {err}", "warning")
@@ -430,7 +500,6 @@ if is_all_assets_valid(all_assets):
             fig_bar.add_trace(go.Bar(
                 x=[style], y=[gains_df[style][i]], name=style, marker_color=color_map[style]
             ))
-        # ستونی:
         fig_bar.update_layout(
             title=f"سود دلاری {period} (برای سرمایه {capital_for_gain:,.0f} دلار)",
             yaxis_title="سود تخمینی ($)",
@@ -459,7 +528,7 @@ if is_all_assets_valid(all_assets):
                 x=results[1]*100, y=results[0]*100,
                 mode='markers', marker=dict(
                     size=6, color=results[2] if style == 'مونت‌کارلو' else -results[4],
-                    colorscale='Viridis' if style == 'مونت‌کارلو' else 'Blues',
+                    colorscale='Viridis' if style=='مونت‌کارلو' else 'Blues',
                     colorbar=dict(title='Sharpe' if style=='مونت‌کارلو' else '-CVaR')
                 ),
                 name="پرتفوهای شبیه‌سازی‌شده"
@@ -478,7 +547,6 @@ if is_all_assets_valid(all_assets):
             )
             st.plotly_chart(fig, use_container_width=True)
         else:
-            # مینیمم واریانس - ماکزیمم شارپ - وزن برابر، نقطه‌ای نمایش بده
             w = style_dict[style]
             port_return = np.dot(w, mean_returns)
             port_vol = np.sqrt(np.dot(w.T, np.dot(cov_matrix, w)))
@@ -497,7 +565,7 @@ if is_all_assets_valid(all_assets):
             )
             st.plotly_chart(fig, use_container_width=True)
 
-    # پیش‌بینی قیمت برای 3/2/1 ماهه برای هر دارایی
+    # پیش‌بینی قیمت برای 3/2/1 ماهه برای هر دارایی + recovery time
     st.subheader("🔮 پیش‌بینی قیمت و بازده آتی هر دارایی")
     prediction_periods = [("سه‌ماهه (۳ ماه)", 3), ("دو ماهه", 2), ("یک ماهه", 1)]
     for i, name in enumerate(asset_names):
@@ -533,6 +601,14 @@ if is_all_assets_valid(all_assets):
                 st.plotly_chart(fig_pred, use_container_width=True)
                 st.markdown(f"📈 **میانگین:** `{future_price_mean:.2f}`")
                 st.markdown(f"📊 **بازده:** `{future_return:.2%}`")
+        # نمایش Recovery Time و Max Drawdown
+        this_prices = resampled_prices[[name]].reset_index()  # دوباره به df تاریخ+قیمت
+        recovery_times, max_recovery_time, max_drawdown = calculate_drawdown_recovery(this_prices)
+        st.info(
+            f"⏳ بیشترین مدت بازیابی پس از افت: **{max_recovery_time} دوره**\n\n"
+            f"📉 بیشترین افت قیمتی (Max Drawdown): **{max_drawdown:.2%}**\n"
+            + (f"🧮 میانگین زمان بازیابی: **{np.mean(recovery_times):.1f} دوره**" if recovery_times else "")
+        )
         st.markdown("---")
 
 else:
