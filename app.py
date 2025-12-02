@@ -143,24 +143,21 @@ def calculate_drawdown_recovery(df):
     max_recovery_time = 0
     i = 0
     while i < len(prices):
-        # دنبال new peak می‌گردیم
         if prices[i] >= peak:
             peak = prices[i]
             i += 1
             continue
-        # وارد دوره ریکاوری شدیم (افت کرده)
         drawdown_start = i - 1
         min_price = prices[i]
         while i < len(prices) and prices[i] < peak:
             if prices[i] < min_price:
                 min_price = prices[i]
             i += 1
-        recovery_time = i - drawdown_start - 1  # فاصله تا بازیابی
+        recovery_time = i - drawdown_start - 1
         if recovery_time > 0:
             recovery_times.append(recovery_time)
             if recovery_time > max_recovery_time:
                 max_recovery_time = recovery_time
-            # بزرگی افت هم می‌شود:
             drawdown = (peak - min_price) / peak
             if drawdown > max_drawdown:
                 max_drawdown = drawdown
@@ -232,12 +229,10 @@ with st.sidebar.expander("محدودیت وزن دارایی‌ها :lock:", exp
     st.markdown("##### محدودیت وزن هر دارایی")
     uploaded_files = st.file_uploader("چند فایل CSV آپلود کنید (هر دارایی یک فایل)", type=['csv'], accept_multiple_files=True, key="uploader")
 
-    # حذف دارایی: پیاده‌سازی اینجا و پس از آپلود/دانلود
     if "deleted_assets" not in st.session_state:
         st.session_state["deleted_assets"] = set()
     deleted_assets = st.session_state["deleted_assets"]
 
-    # همه دارایی‌های آپلودشده
     all_assets = []
     asset_read_errors = []
     if uploaded_files:
@@ -286,12 +281,10 @@ with st.sidebar.expander("محدودیت وزن دارایی‌ها :lock:", exp
         except Exception as ex:
             msg(f"خطا در دریافت داده: {ex}", "error")
     if st.session_state.get("downloaded_dfs"):
-        # فقط دارایی‌های حذف نشده را بیاور
         for t, df in st.session_state["downloaded_dfs"]:
             if t not in deleted_assets:
                 all_assets.append((t, df))
 
-    # نمایش لیست دارایی‌ها با حذف
     st.markdown("#### لیست دارایی‌های فعلی")
     remove_col1, remove_col2 = st.columns([2,1])
     assets_to_remove = []
@@ -301,11 +294,10 @@ with st.sidebar.expander("محدودیت وزن دارایی‌ها :lock:", exp
         with remove_col2:
             if st.button(f"حذف {name}", key=f"remove_asset_{name}"):
                 assets_to_remove.append(name)
-    # حذف دارایی‌ها از session و لیست
     if assets_to_remove:
         for name in assets_to_remove:
             deleted_assets.add(name)
-        # در آپدیت بعدی صفحه اعمال می‌شود
+        st.experimental_rerun()
 
     for err in asset_read_errors:
         msg(f"⚠️ {err}", "warning")
@@ -425,7 +417,6 @@ if is_all_assets_valid(all_assets):
         results[4, i] = -CVaR
         results[5:, i] = weights
 
-    # سبک‌های پرتفو و آمار آنها
     best_idx = np.argmin(np.abs(results[1] - user_risk))
     best_weights = results[5:, best_idx]
     cvar_idx = np.nanargmin(results[4])
@@ -452,7 +443,6 @@ if is_all_assets_valid(all_assets):
     }
     min_percent_for_pie = 0.1
 
-    # نمایش اطلاعات و pie هر سبک + سود دلاری هر سبک و هر بازه
     st.subheader(":rocket: اطلاعات سبد و نمودار دایره‌ای سبک‌ها")
     gains_table = {}
     periods = [('سالانه', 1), ('سه‌ماهه', 3/12), ('دوماهه', 2/12), ('یک‌ماهه', 1/12)]
@@ -486,13 +476,11 @@ if is_all_assets_valid(all_assets):
         gains_table[style] = gain_row
         st.markdown("---")
 
-    # جدول مقایسه سود دلاری سبک‌ها
     col_gains = ['سالانه', 'سه‌ماهه', 'دوماهه', 'یک‌ماهه']
     st.subheader("📋 جدول مقایسه سود دلاری سبک‌ها")
     gains_df = pd.DataFrame(gains_table, index=col_gains)
     st.dataframe(gains_df.T, use_container_width=True)
 
-    # نمودار میله‌ای سود برای هر بازه (هر نمودار یک بازه؛ سبک‌ها کنار هم)
     st.subheader("📈 مقایسه دلاری سبک‌ها در هر بازه (Bar Chart)")
     for i, period in enumerate(col_gains):
         fig_bar = go.Figure()
@@ -509,7 +497,6 @@ if is_all_assets_valid(all_assets):
         )
         st.plotly_chart(fig_bar, use_container_width=True)
 
-    # جدول مقایسه وزن‌های سبک‌ها
     st.subheader("📋 جدول مقایسه وزن دارایی‌ها")
     compare_dict = {"دارایی": asset_names}
     for style, weights in style_dict.items():
@@ -517,7 +504,6 @@ if is_all_assets_valid(all_assets):
     df_compare = pd.DataFrame(compare_dict)
     st.dataframe(df_compare.set_index("دارایی"), use_container_width=True)
 
-    # مرز کارا برای هر سبک: فقط جایی که معنی‌دار است (مونت‌کارلو و CVaR، و سبک‌های نقطه‌ای)
     st.subheader("🌈 مرز کارا پرتفوها (سبک‌ها)")
     for style in style_keys:
         st.markdown(f"#### مرز کارا: {style}")
@@ -565,7 +551,7 @@ if is_all_assets_valid(all_assets):
             )
             st.plotly_chart(fig, use_container_width=True)
 
-    # پیش‌بینی قیمت برای 3/2/1 ماهه برای هر دارایی + recovery time
+    # بخش پیش‌بینی قیمت و بازیابی/افت دارایی
     st.subheader("🔮 پیش‌بینی قیمت و بازده آتی هر دارایی")
     prediction_periods = [("سه‌ماهه (۳ ماه)", 3), ("دو ماهه", 2), ("یک ماهه", 1)]
     for i, name in enumerate(asset_names):
@@ -602,7 +588,7 @@ if is_all_assets_valid(all_assets):
                 st.markdown(f"📈 **میانگین:** `{future_price_mean:.2f}`")
                 st.markdown(f"📊 **بازده:** `{future_return:.2%}`")
         # نمایش Recovery Time و Max Drawdown
-        this_prices = resampled_prices[[name]].reset_index()  # دوباره به df تاریخ+قیمت
+        this_prices = resampled_prices[[name]].reset_index()
         recovery_times, max_recovery_time, max_drawdown = calculate_drawdown_recovery(this_prices)
         st.info(
             f"⏳ بیشترین مدت بازیابی پس از افت: **{max_recovery_time} دوره**\n\n"
