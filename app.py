@@ -551,7 +551,7 @@ if is_all_assets_valid(all_assets):
             )
             st.plotly_chart(fig, use_container_width=True)
 
-    # بخش پیش‌بینی قیمت و بازیابی/افت دارایی
+    # پیش‌بینی قیمت برای 3/2/1 ماهه برای هر دارایی + recovery time
     st.subheader("🔮 پیش‌بینی قیمت و بازده آتی هر دارایی")
     prediction_periods = [("سه‌ماهه (۳ ماه)", 3), ("دو ماهه", 2), ("یک ماهه", 1)]
     for i, name in enumerate(asset_names):
@@ -587,8 +587,9 @@ if is_all_assets_valid(all_assets):
                 st.plotly_chart(fig_pred, use_container_width=True)
                 st.markdown(f"📈 **میانگین:** `{future_price_mean:.2f}`")
                 st.markdown(f"📊 **بازده:** `{future_return:.2%}`")
-        # نمایش Recovery Time و Max Drawdown
+        # نمایش Recovery Time و Max Drawdown -- رفع خطا در این قسمت:
         this_prices = resampled_prices[[name]].reset_index()
+        this_prices = this_prices.rename(columns={name: "Price"})
         recovery_times, max_recovery_time, max_drawdown = calculate_drawdown_recovery(this_prices)
         st.info(
             f"⏳ بیشترین مدت بازیابی پس از افت: **{max_recovery_time} دوره**\n\n"
