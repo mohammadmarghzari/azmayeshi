@@ -58,16 +58,17 @@ def format_recovery(days):
 # ==================== محاسبه پرتفوی (فقط این قسمت دوباره اجرا میشه) ====================
 @st.fragment
 def calculate_portfolio():
-    if st.session_state.prices is None:
+    if st.session_state.get("prices") is None:
         st.info("ابتدا داده‌ها را دانلود یا آپلود کنید.")
         return
 
-    returns = st.session_state.prices.pct_change().dropna()
-    asset_names = list(st.session_state.prices.columns)
+    prices = st.session_state.prices
+    returns = prices.pct_change().dropna()
+    asset_names = list(prices.columns)
     mean_ret = returns.mean() * 252
     cov_mat = returns.cov() * 252
 
-    # محدودیت‌ها
+    # محدودیت‌ها بر اساس هجینگ
     bounds = []
     for name in asset_names:
         low = 0.0
@@ -87,7 +88,6 @@ def calculate_portfolio():
         bounds.append((low, up))
 
     constraints = [{"type": "eq", "fun": lambda w: np.sum(w) - 1}]
-    }]
     x0 = np.ones(len(asset_names)) / len(asset_names)
 
     def neg_sharpe(w):
@@ -95,7 +95,7 @@ def calculate_portfolio():
         risk = np.sqrt(np.dot(w.T, np.dot(cov_mat, w))) * 100
         return -(r - st.session_state.rf_rate) / risk if risk > 0 else 9999
 
-    with st.spinner("در حال بهینه‌سازی پرتفوی..."):
+    with st.spinner("در حال بهینه‌سازی..."):
         res = minimize(neg_sharpe, x0, method="SLSQP", bounds=bounds, constraints=constraints, options={"maxiter": 1000})
 
     if not res.success:
@@ -124,7 +124,7 @@ def calculate_portfolio():
     st.markdown("### تخصیص دارایی‌ها")
     st.dataframe(df_w, use_container_width=True)
 
-    fig_pie = px.pie(df_w, values="وزن (%)", names="دارایی", title="توزیع وزن دارایی‌ها")
+    fig_pie = px.pie(df_w, values="وزن (%)", names="دارایی", title="توزیع وزن")
     st.plotly_chart(fig_pie, use_container_width=True)
 
     # مرز کارا
@@ -147,7 +147,7 @@ def calculate_portfolio():
                              name="پرتفوهای تصادفی"))
     fig.add_trace(go.Scatter(x=[risk], y=[ret], mode='markers',
                              marker=dict(color='gold', size=20, symbol='star-diamond'),
-                             name="پرتفوی بهینه شما"))
+                             name="پرتفوی بهینه"))
     fig.update_layout(height=600, xaxis_title="ریسک (%)", yaxis_title="بازده (%)")
     st.plotly_chart(fig, use_container_width=True)
 
@@ -156,13 +156,15 @@ def calculate_portfolio():
 # ==================== صفحه اصلی ====================
 st.set_page_config(page_title="Portfolio360 Ultimate", layout="wide")
 st.title("Portfolio360 Ultimate")
-st.markdown("### بهترین ابزار تحلیل پرتفوی فارسی با هجینگ هوشمند، ریکاوری تایم و انتخاب سبک")
+st.markdown("### کامل‌ترین ابزار تحلیل پرتفوی فارسی — بدون ریست شدن")
 
-# ==================== سایدبار – تنظیمات بدون ریست ====================
+# ==================== سایدبار ====================
 st.sidebar.header("منبع داده")
+
+# فقط وقتی دکمه زده بشه داده جدید میاد
 if st.sidebar.button("دانلود از Yahoo Finance", type="primary"):
     default = "BTC-USD,ETH-USD,GC=F,^GSPC,USDIRR=X"
-    tickers = st.sidebar.text_input("نمادها", value=default)
+    tickers = st.sidebar.text_input("نمادها (با کاما)", value=default)
     period = st.sidebar.selectbox("بازه زمانی", ["1y","3y","5y","max"], index=2)
     prices = download_data(tickers, period)
     if prices is not None:
@@ -170,7 +172,7 @@ if st.sidebar.button("دانلود از Yahoo Finance", type="primary"):
         st.rerun()
 
 if st.sidebar.button("آپلود فایل CSV"):
-    uploaded = st.sidebar.file_uploader("فایل‌ها را بکشید", type="csv", accept_multiple_files=True, key="uploader")
+    uploaded = st.sidebar.file_uploader("فایل‌ها را اینجا بکشید", type="csv", accept_multiple_files=True)
     if uploaded:
         dfs = []
         for f in uploaded:
@@ -186,15 +188,11 @@ if st.sidebar.button("آپلود فایل CSV"):
 # تنظیمات بدون ریست
 st.sidebar.header("تنظیمات پرتفوی")
 
-# مقداردهی اولیه session_state
-for key, val in {
-    "rf_rate": 18.0,
-    "hedge_active": True,
-    "hedge_type": "طلا به عنوان هج",
-    "max_btc": 20
-}.items():
-    if key not in st.session_state:
-        st.session_state[key] = val
+# مقداردهی اولیه
+defaults = {"rf_rate": 18.0, "hedge_active": True, "hedge_type": "طلا به عنوان هج", "max_btc": 20}
+for k, v in defaults.items():
+    if k not in st.session_state:
+        st.session_state[k] = v
 
 st.session_state.rf_rate = st.sidebar.number_input("نرخ بدون ریسک (%)", 0.0, 50.0, st.session_state.rf_rate, 0.5)
 st.session_state.hedge_active = st.sidebar.checkbox("هجینگ هوشمند فعال باشد", st.session_state.hedge_active)
@@ -210,27 +208,22 @@ if st.session_state.hedge_active:
 
 st.session_state.max_btc = st.sidebar.slider("حداکثر وزن بیت‌کوین (%)", 0, 100, st.session_state.max_btc)
 
-# ==================== دکمه محاسبه (اجباری نیست، خودکار هم کار می‌کنه) ====================
-if st.sidebar.button("محاسبه پرتفوی جدید", type="primary"):
+# دکمه محاسبه (اختیاری — خودکار هم کار می‌کنه)
+if st.sidebar.button("محاسبه مجدد پرتفوی", type="primary"):
     st.rerun()
 
 # ==================== اجرای محاسبات ====================
 calculate_portfolio()
 
 # ==================== توضیح سبک ====================
-with st.expander("توضیح سبک استفاده‌شده و انتخاب سبک دیگر", expanded=True):
-    st.success("**سبک فعلی: بهینه‌سازی میانگین-واریانس (Markowitz) با هجینگ هوشمند**")
-    st.write("""
-    - بالاترین نسبت شارپ
-    - محافظت قوی در برابر ریزش‌های بازار
-    - کاملاً عملی برای سرمایه‌گذاران ایرانی
-    """)
+with st.expander("توضیح سبک و انتخاب سبک دیگر", expanded=True):
+    st.success("سبک فعلی: بهینه‌سازی میانگین-واریانس (Markowitz) با هجینگ هوشمند")
+    st.write("- بالاترین نسبت شارپ\n- محافظت در ریزش‌ها\n- کاملاً عملی در ایران")
 
-    st.markdown("**سبک‌های دیگر قابل انتخاب:**")
-    style = st.radio("انتخاب سبک پرتفوی با سبک دیگر:",
-                     ["بهینه‌سازی مارکوویتز (فعلی)", "وزن برابر", "حداقل ریسک", "ریسک‌پاریتی"])
-    if style != "بهینه‌سازی مارکوویتز (فعلی)":
-        st.info(f"در نسخه بعدی سبک «{style}» رو برات فعال می‌کنم. فقط بگو!")
+    style = st.radio("انتخاب سبک دیگر:",
+                     ["مارکوویتز (فعلی)", "وزن برابر", "حداقل ریسک", "ریسک‌پاریتی", "بلک-لیترمن"])
+    if style != "مارکوویتز (فعلی)":
+        st.info(f"سبک «{style}» انتخاب شد. فقط بگو تا برات فعالش کنم!")
 
 st.balloons()
-st.caption("Portfolio360 Ultimate - نسخه نهایی بدون ریست | ۱۴۰۴")
+st.caption("Portfolio360 Ultimate — نسخه نهایی بدون ریست | ۱۴۰۴")
