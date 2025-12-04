@@ -1,9 +1,9 @@
-streamlit>=1.38.0
-pandas>=2.0
-numpy>=1.24
+streamlit
+pandas
+numpy
 plotly
 yfinance
 openpyxl
-scikit-learn==1.5.2
+scikit-learn
 cvxpy==1.5.3
 PyPortfolioOpt==1.5.5
