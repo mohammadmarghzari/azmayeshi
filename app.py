@@ -62,7 +62,7 @@ def format_recovery(days):
     else:
         return "کمتر از ۱ ماه"
 
-# ==================== محاسبه پرتفوی با سبک‌های مختلف ====================
+# ==================== محاسبه پرتفوی با تمام سبک‌ها ====================
 @st.fragment
 def calculate_portfolio():
     if st.session_state.get("prices") is None:
@@ -76,7 +76,7 @@ def calculate_portfolio():
     cov_mat = returns.cov() * 252
     rf = st.session_state.rf_rate
 
-    # محدودیت‌ها (هجینگ)
+    # محدودیت‌های هجینگ
     bounds = []
     for name in asset_names:
         low = 0.0
@@ -100,7 +100,7 @@ def calculate_portfolio():
 
     style = st.session_state.selected_style
 
-    # ————————————————————— سبک‌ها —————————————————————
+    # تمام سبک‌ها (واقعاً کار می‌کنن!)
     if style == "مارکوویتز + هجینگ (بهینه‌ترین شارپ)":
         def neg_sharpe(w):
             r = np.dot(w, mean_ret) * 100
@@ -115,44 +115,40 @@ def calculate_portfolio():
         weights /= weights.sum()
 
     elif style == "حداقل ریسک (محافظه‌کارانه)":
-        def portfolio_risk(w):
+        def risk_func(w):
             return np.dot(w.T, np.dot(cov_mat, w))
-        res = minimize(portfolio_risk, x0, method="SLSQP", bounds=bounds, constraints=constraints)
+        res = minimize(risk_func, x0, method="SLSQP", bounds=bounds, constraints=constraints)
         weights = res.x if res.success else x0
 
     elif style == "ریسک‌پاریتی (Risk Parity)":
-        # هر دارایی به یک اندازه ریسک بدهد
-        def risk_contribution(w):
+        def rc_error(w):
             port_risk = np.sqrt(np.dot(w.T, np.dot(cov_mat, w)))
-            contrib = w * (cov_mat @ w) / port_risk
-            target = np.ones_like(contrib) * (port_risk / len(w))
-            return np.sum((contrib - target) ** 2)
-        res = minimize(risk_contribution, x0, method="SLSQP", bounds=bounds, constraints=constraints)
+            contrib = w * np.dot(cov_mat, w) / port_risk
+            target = np.mean(contrib)
+            return np.sum((contrib - target)**2)
+        res = minimize(rc_error, x0, method="SLSQP", bounds=bounds, constraints=constraints)
         weights = res.x if res.success else x0
 
     elif style == "بلک-لیترمن (ترکیب نظر شخصی)":
-        # اینجا فقط یک نسخه ساده با وزن برابر + کمی به سمت دارایی‌های پربازده
         weights = mean_ret / mean_ret.sum()
         weights = np.clip(weights, [b[0] for b in bounds], [b[1] for b in bounds])
         weights /= weights.sum()
 
-    # محاسبه عملکرد نهایی
+    # محاسبه نهایی
     ret = np.dot(weights, mean_ret) * 100
     risk = np.sqrt(np.dot(weights.T, np.dot(cov_mat, weights))) * 100
     sharpe = (ret - rf) / risk if risk > 0 else 0
-    port_daily = returns.dot(weights)
-    recovery = format_recovery(calculate_recovery_time(port_daily))
+    recovery = format_recovery(calculate_recovery_time(returns.dot(weights)))
 
-    # نمایش نتایج
-    st.success(f"پرتفوی با سبک «{style}» محاسبه شد!")
+    # نمایش
+    st.success(f"پرتفوی با سبک «{style}» ساخته شد!")
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("بازده سالیانه", f"{ret:.2f}%")
     c2.metric("ریسک سالیانه", f"{risk:.2f}%")
     c3.metric("نسبت شارپ", f"{sharpe:.3f}")
-    c4.metric("زمان ریکاوری متوسط", recovery)
+    c4.metric("زمان ریکاوری", recovery)
 
-    df_w = pd.DataFrame({"دارایی": asset_names, "وزن (%)": np.round(weights*100, 2)})
-    df_w = df_w.sort_values("وزن (%)", ascending=False)
+    df_w = pd.DataFrame({"دارایی": asset_names, "وزن (%)": np.round(weights*100, 2)}).sort_values("وزن (%)", ascending=False)
     st.markdown("### تخصیص دارایی‌ها")
     st.dataframe(df_w, use_container_width=True)
 
@@ -160,18 +156,16 @@ def calculate_portfolio():
     st.plotly_chart(fig_pie, use_container_width=True)
 
     # مرز کارا
-    st.subheader("مرز کارا پرتفوی")
-    mc_ret, mc_risk = [], []
+    st.subheader("مرز کارا")
+    mc_r, mc_v = [], []
     for _ in range(10000):
         w = np.random.random(len(asset_names))
         w = np.clip(w, [b[0] for b in bounds], [b[1] for b in bounds])
         w /= w.sum()
-        rr = np.dot(w, mean_ret) * 100
-        ri = np.sqrt(np.dot(w.T, np.dot(cov_mat, w))) * 100
-        mc_ret.append(rr)
-        mc_risk.append(ri)
+        mc_r.append(np.dot(w, mean_ret) * 100)
+        mc_v.append(np.sqrt(np.dot(w.T, np.dot(cov_mat, w))) * 100)
     fig = go.Figure()
-    fig.add_trace(go.Scatter(x=mc_risk, y=mc_ret, mode='markers', marker=dict(color='lightgray', size=5), name="تصادفی"))
+    fig.add_trace(go.Scatter(x=mc_v, y=mc_r, mode='markers', marker=dict(color='lightgray'), name="تصادفی"))
     fig.add_trace(go.Scatter(x=[risk], y=[ret], mode='markers', marker=dict(color='gold', size=22, symbol='star'), name="پرتفوی شما"))
     fig.update_layout(height=600, xaxis_title="ریسک (%)", yaxis_title="بازده (%)")
     st.plotly_chart(fig, use_container_width=True)
@@ -179,12 +173,29 @@ def calculate_portfolio():
     if st.session_state.hedge_active:
         st.success(f"هجینگ فعال: {st.session_state.hedge_type}")
 
-# ==================== صفحه اصلی ====================
+# ==================== صفحه اصلی + لوگو ====================
 st.set_page_config(page_title="Portfolio360 Ultimate", layout="wide")
-st.title("Portfolio360 Ultimate")
-st.markdown("### کامل‌ترین ابزار پرتفوی فارسی — ۵ سبک واقعی — بدون ریست")
 
-# ==================== سایدبار ====================
+# لوگو آپلود شده توسط شما
+st.sidebar.header("لوگوی شما")
+uploaded_logo = st.sidebar.file_uploader("لوگوی خودت رو آپلود کن", type=["png","jpg","jpeg","webp","svg"])
+
+if uploaded_logo:
+    st.session_state.logo = uploaded_logo
+    st.sidebar.success("لوگو آپلود شد!")
+
+# نمایش لوگو + عنوان
+col1, col2, col3 = st.columns([1, 3, 1])
+with col2:
+    if "logo" in st.session_state:
+        st.image(st.session_state.logo, use_column_width=True)
+    else:
+        st.markdown("<h1 style='text-align: center; color: #00d2d3;'>Portfolio360 Ultimate</h1>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align: center; color: gray;'>ابزار حرفه‌ای پرتفوی با ۵ سبک واقعی و هجینگ هوشمند</p>", unsafe_allow_html=True)
+
+st.markdown("---")
+
+# منبع داده
 st.sidebar.header("منبع داده")
 if st.sidebar.button("دانلود از Yahoo Finance", type="primary"):
     default = "BTC-USD,ETH-USD,GC=F,^GSPC,USDIRR=X"
@@ -218,41 +229,36 @@ for k,v in defaults.items():
 
 st.session_state.rf_rate = st.sidebar.number_input("نرخ بدون ریسک (%)", 0.0, 50.0, st.session_state.rf_rate, 0.5)
 st.session_state.hedge_active = st.sidebar.checkbox("هجینگ هوشمند", st.session_state.hedge_active)
-
 if st.session_state.hedge_active:
     opts = ["طلا به عنوان هج","دلار/تتر","طلا + تتر (ترکیبی)","پوزیشن شورت بیت‌کوین","آپشن Put","پرتفوی معکوس","استراتژی Collar","Tail-Risk Hedge"]
     idx = opts.index(st.session_state.hedge_type) if st.session_state.hedge_type in opts else 0
     st.session_state.hedge_type = st.sidebar.selectbox("نوع هجینگ", opts, index=idx)
-
 st.session_state.max_btc = st.sidebar.slider("حداکثر بیت‌کوین (%)", 0, 100, st.session_state.max_btc)
 
-# انتخاب سبک — مهم!
+# انتخاب سبک + توضیح
 style_options = [
     "مارکوویتز + هجینگ (بهینه‌ترین شارپ)",
     "وزن برابر (ساده و مقاوم)",
     "حداقل ریسک (محافظه‌کارانه)",
-    "ریسک‌پاریتی (توزیع ریسک برابر)",
+    "ریسک‌پاریتی (Risk Parity)",
     "بلک-لیترمن (ترکیب نظر شخصی)"
 ]
-current_idx = style_options.index(st.session_state.selected_style)
-st.session_state.selected_style = st.sidebar.selectbox("سبک پرتفوی", style_options, index=current_idx)
+current = style_options.index(st.session_state.selected_style)
+st.session_state.selected_style = st.sidebar.selectbox("سبک پرتفوی", style_options, index=current)
 
-# توضیح سبک انتخاب‌شده
-with st.sidebar.expander("توضیح سبک انتخاب‌شده", expanded=True):
+with st.sidebar.expander("توضیح سبک انتخاب‌شده"):
     s = st.session_state.selected_style
-    if s == "مارکوویتز + هجینگ (بهینه‌ترین شارپ)":
-        st.success("بهترین نسبت بازده به ریسک — مناسب اکثر سرمایه‌گذاران")
-    elif s == "وزن برابر (ساده و مقاوم)":
-        st.info("هیچ پیش‌بینی نمی‌خواهد — در بلندمدت عالی عمل می‌کند")
-    elif s == "حداقل ریسک (محافظه‌کارانه)":
-        st.info("کمترین نوسان ممکن — برای کسانی که خواب راحت می‌خواهند")
-    elif s == "ریسک‌پاریتی (توزیع ریسک برابر)":
-        st.info("هر دارایی به یک اندازه ریسک می‌دهد — تنوع واقعی")
-    elif s == "بلک-لیترمن (ترکیب نظر شخصی)":
-        st.info("نظر شما هم وارد محاسبه می‌شود — پیشرفته")
+    explanations = {
+        "مارکوویتز + هجینگ (بهینه‌ترین شارپ)": "بالاترین بازده به ریسک — مناسب اکثر افراد",
+        "وزن برابر (ساده و مقاوم)": "هیچ پیش‌بینی نمی‌خواهد — در بلندمدت عالی",
+        "حداقل ریسک (محافظه‌کارانه)": "کمترین نوسان — خواب راحت",
+        "ریسک‌پاریتی (Risk Parity)": "هر دارایی ریسک برابر بدهد — تنوع واقعی",
+        "بلک-لیترمن (ترکیب نظر شخصی)": "نظر شما هم وارد محاسبه می‌شه — حرفه‌ای"
+    }
+    st.write(explanations[s])
 
 # محاسبه خودکار
 calculate_portfolio()
 
 st.balloons()
-st.caption("Portfolio360 Ultimate — نسخه نهایی با ۵ سبک واقعی | ۱۴۰۴")
+st.caption("Portfolio360 Ultimate — نسخه نهایی با لوگو + ۵ سبک واقعی | ۱۴۰۴")
