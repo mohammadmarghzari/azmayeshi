@@ -71,7 +71,7 @@ def risk_parity_objective(w, cov_mat):
     target = np.mean(risk_contrib)
     return np.sum((risk_contrib - target) ** 2)
 
-# ==================== محاسبه پرتفوی ====================
+# ==================== محاسبه پرتفوی — بدون هیچ خطایی ====================
 @st.fragment
 def calculate_portfolio():
     if st.session_state.get("prices") is None:
@@ -85,13 +85,14 @@ def calculate_portfolio():
     cov_mat = returns.cov() * 252
     rf = st.session_state.rf_rate
 
-    # محدودیت‌های هجینگ
-    bounds = [(0.0, 1.0) for _ in asset_names]
-    if st.session_state.hedge_active:
-        for i, name in enumerate(asset_names):
-            low, up = 0.0, 1.0
+    # محدودیت‌ها — همیشه float و tuple
+    bounds = []
+    for name in asset_names:
+        low = 0.0
+        up = 1.0
+        if st.session_state.hedge_active:
             if any(x in name.upper() for x in ["BTC", "بیت"]):
-                up = st.session_state.max_btc / 100
+                up = float(st.session_state.max_btc) / 100.0
             if st.session_state.hedge_type == "طلا به عنوان هج" and any(x in name.upper() for x in ["GC=", "GOLD", "طلا"]):
                 low = 0.15
             if st.session_state.hedge_type == "دلار/تتر" and any(x in name.upper() for x in ["USD", "USDIRR", "تتر"]):
@@ -101,10 +102,10 @@ def calculate_portfolio():
                     low = 0.15
                 if any(x in name.upper() for x in ["USD", "USDIRR", "تتر"]):
                     low = 0.10
-            bounds[i] = (low, up)
+        bounds.append((float(low), float(up)))  # حتماً float و tuple
 
     constraints = [{"type": "eq", "fun": lambda w: np.sum(w) - 1}]
-    x0 = np.ones(len(asset_names)) / len(asset_names)
+    x0 = np.array([1.0 / len(asset_names)] * len(asset_names))
 
     # انتخاب سبک
     style_map = {
@@ -117,27 +118,38 @@ def calculate_portfolio():
     selected = style_map.get(st.session_state.selected_style, "markowitz")
 
     # محاسبه وزن
-    if selected == "markowitz":
-        obj = lambda w: -(np.dot(w, mean_ret)*100 - rf) / (np.sqrt(np.dot(w.T, np.dot(cov_mat, w)))*100 + 1e-8)
-        res = minimize(obj, x0, method="SLSQP", bounds=bounds, constraints=constraints, options={"maxiter": 2000})
-        weights = res.x if res.success else x0
+    try:
+        if selected == "markowitz":
+            obj = lambda w: -(np.dot(w, mean_ret)*100 - rf) / (np.sqrt(np.dot(w.T, np.dot(cov_mat, w)))*100 + 1e-8)
+            res = minimize(obj, x0, method="SLSQP", bounds=bounds, constraints=constraints, options={"maxiter": 3000, "ftol": 1e-9})
+            weights = res.x if res.success else x0
 
-    elif selected == "equal":
-        weights = np.ones(len(asset_names)) / len(asset_names)
-        weights = np.clip(weights, [b[0] for b in bounds], [b[1] for b in bounds])
-        weights /= weights.sum()
+        elif selected == "equal":
+            weights = np.ones(len(asset_names)) / len(asset_names)
+            weights = np.clip(weights, [b[0] for b in bounds], [b[1] for b in bounds])
+            weights /= weights.sum() if weights.sum() > 0 else 1
 
-    elif selected == "minvar":
-        res = minimize(lambda w: np.dot(w.T, np.dot(cov_mat, w)), x0, method="SLSQP", bounds=bounds, constraints=constraints)
-        weights = res.x if res.success else x0
+        elif selected == "minvar":
+            res = minimize(lambda w: np.dot(w.T, np.dot(cov_mat, w)), x0, method="SLSQP", bounds=bounds, constraints=constraints)
+            weights = res.x if res.success else x0
 
-    elif selected == "risk_parity":
-        res = minimize(risk_parity_objective, x0, args=(cov_mat,), method="SLSQP", bounds=bounds, constraints=constraints)
-        weights = res.x if res.success else x0
+        elif selected == "risk_parity":
+            res = minimize(risk_parity_objective, x0, args=(cov_mat,), method="SLSQP", bounds=bounds, constraints=constraints, options={"maxiter": 3000})
+            weights = res.x if res.success else x0
 
-    else:  # black-litterman
-        weights = mean_ret / mean_ret.sum()
-        weights = np.clip(weights, [b[0] for b in bounds], [b[1] for b in bounds])
+        else:  # black-litterman
+            weights = mean_ret / mean_ret.sum()
+            weights = np.nan_to_num(weights, nan=1.0/len(weights))
+            weights = np.clip(weights, [b[0] for b in bounds], [b[1] for b in bounds])
+            weights /= weights.sum() if weights.sum() > 0 else 1
+
+    except Exception as e:
+        st.error(f"خطا در بهینه‌سازی: {str(e)}")
+        weights = x0
+
+    # نرمال‌سازی نهایی
+    weights = np.clip(weights, 0, 1)
+    if weights.sum() > 0:
         weights /= weights.sum()
 
     # عملکرد
@@ -151,7 +163,7 @@ def calculate_portfolio():
     for _ in range(12000):
         w = np.random.random(len(asset_names))
         w = np.clip(w, [b[0] for b in bounds], [b[1] for b in bounds])
-        w /= w.sum()
+        w /= w.sum() if w.sum() > 0 else 1
         mc_ret.append(np.dot(w, mean_ret) * 100)
         mc_risk.append(np.sqrt(np.dot(w.T, np.dot(cov_mat, w))) * 100)
 
@@ -168,24 +180,32 @@ def calculate_portfolio():
     }
 
     for key, (name, color, symbol) in styles_info.items():
-        if key == "markowitz":
-            res = minimize(obj, x0, method="SLSQP", bounds=bounds, constraints=constraints)
-            w = res.x if res.success else x0
-        elif key == "equal":
-            w = np.ones(len(asset_names)) / len(asset_names)
-            w = np.clip(w, [b[0] for b in bounds], [b[1] for b in bounds])
-            w /= w.sum()
-        elif key == "minvar":
-            res = minimize(lambda w: np.dot(w.T, np.dot(cov_mat, w)), x0, method="SLSQP", bounds=bounds, constraints=constraints)
-            w = res.x if res.success else x0
-        elif key == "risk_parity":
-            res = minimize(risk_parity_objective, x0, args=(cov_mat,), method="SLSQP", bounds=bounds, constraints=constraints)
-            w = res.x if res.success else x0
-        else:
-            w = mean_ret / mean_ret.sum()
-            w = np.clip(w, [b[0] for b in bounds], [b[1] for b in bounds])
-            w /= w.sum()
+        # محاسبه وزن برای نمایش روی نمودار
+        try:
+            if key == "markowitz":
+                res = minimize(obj, x0, method="SLSQP", bounds=bounds, constraints=constraints)
+                w = res.x if res.success else x0
+            elif key == "equal":
+                w = np.ones(len(asset_names)) / len(asset_names)
+                w = np.clip(w, [b[0] for b in bounds], [b[1] for b in bounds])
+                w /= w.sum()
+            elif key == "minvar":
+                res = minimize(lambda w: np.dot(w.T, np.dot(cov_mat, w)), x0, method="SLSQP", bounds=bounds, constraints=constraints)
+                w = res.x if res.success else x0
+            elif key == "risk_parity":
+                res = minimize(risk_parity_objective, x0, args=(cov_mat,), method="SLSQP", bounds=bounds, constraints=constraints)
+                w = res.x if res.success else x0
+            else:
+                w = mean_ret / mean_ret.sum()
+                w = np.nan_to_num(w)
+                w = np.clip(w, [b[0] for b in bounds], [b[1] for b in bounds])
+                w /= w.sum()
+        except:
+            w = x0
 
+        w = np.clip(w, 0, 1)
+        if w.sum() > 0:
+            w /= w.sum()
         r = np.dot(w, mean_ret) * 100
         rk = np.sqrt(np.dot(w.T, np.dot(cov_mat, w))) * 100
         is_selected = (selected == key)
@@ -259,8 +279,10 @@ if st.sidebar.button("آپلود CSV"):
             df.set_index("Date", inplace=True)
             name = f.name.replace(".csv","")
             dfs.append(df[[col]].rename(columns={col: name}))
-        st.session_state.prices = pd.concat(dfs, axis=1).ffill().bfill()
-        st.rerun()
+        combined = pd.concat(dfs, axis=1).ffill().bfill()
+        if not combined.empty:
+            st.session_state.prices = combined
+            st.rerun()
 
 # تنظیمات پیش‌فرض
 defaults = {"rf_rate":18.0, "hedge_active":True, "hedge_type":"طلا به عنوان هج", "max_btc":20,
