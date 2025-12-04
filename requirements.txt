@@ -4,6 +4,4 @@ numpy
 plotly
 yfinance
 openpyxl
-scikit-learn
-cvxpy==1.5.3
-PyPortfolioOpt==1.5.5
+scipy  # فقط این برای بهینه‌سازی!
