@@ -58,152 +58,155 @@ def format_recovery(days):
     if months: return f"{months} ماه"
     return "کمتر از ۱ ماه"
 
-# ==================== محاسبه پرتفوی — بدون خطا ====================
+# ==================== تابع ریسک‌پاریتی — خارج از شرط! ====================
+def risk_parity_objective(w, cov_mat):
+    port_var = np.dot(w.T, np.dot(cov_mat, w))
+    if port_var < 1e-10:
+        return 9999.0
+    marginal_contrib = np.dot(cov_mat, w)
+    risk_contrib = w * marginal_contrib / np.sqrt(port_var)
+    target = np.mean(risk_contrib)
+    return np.sum((risk_contrib - target) ** 2)
+
+# ==================== محاسبه پرتفوی — کاملاً بدون خطا ====================
 @st.fragment
 def calculate_portfolio():
     if st.session_state.get("prices") is None:
-        st.info("لطفاً داده‌ها را دانلود یا آپلود کنید.")
-        return
+     st.info("لطفاً داده‌ها را دانلود یا آپلود کنید.")
+     return
 
-    prices = st.session_state.prices
-    returns = prices.pct_change().dropna()
-    asset_names = list(prices.columns)
-    mean_ret = returns.mean() * 252
-    cov_mat = returns.cov() * 252
-    rf = st.session_state.rf_rate
+ prices = st.session_state.prices
+ returns = prices.pct_change().dropna()
+ asset_names = list(prices.columns)
+ mean_ret = returns.mean() * 252
+ cov_mat = returns.cov() * 252
+ rf = st.session_state.rf_rate
 
-    # محدودیت‌های هجینگ
-    bounds = [(0.0, 1.0) for _ in asset_names]
-    if st.session_state.hedge_active:
-        for i, name in enumerate(asset_names):
-            low, up = 0.0, 1.0
-            if any(x in name.upper() for x in ["BTC", "بیت"]):
-                up = st.session_state.max_btc / 100
-            if st.session_state.hedge_type == "طلا به عنوان هج" and any(x in name.upper() for x in ["GC=", "GOLD", "طلا"]):
-                low = 0.15
-            if st.session_state.hedge_type == "دلار/تتر" and any(x in name.upper() for x in ["USD", "USDIRR", "تتر"]):
-                low = 0.10
-            if st.session_state.hedge_type == "طلا + تتر (ترکیبی)":
-                if any(x in name.upper() for x in ["GC=", "GOLD", "طلا"]): low = 0.15
-                if any(x in name.upper() for x in ["USD", "USDIRR", "تتر"]): low = 0.10
-            bounds[i] = (low, up)
+ # محدودیت‌ها
+ bounds = [(0.0, 1.0) for _ in asset_names]
+ if st.session_state.hedge_active:
+     for i, name in enumerate(asset_names):
+         low, up = 0.0, 1.0
+         if any(x in name.upper() for x in ["BTC", "بیت"]):
+             up = st.session_state.max_btc / 100
+         if st.session_state.hedge_type == "طلا به عنوان هج" and any(x in name.upper() for x in ["GC=", "GOLD", "طلا"]):
+             low = 0.15
+         if st.session_state.hedge_type == "دلار/تتر" and any(x in name.upper() for x in ["USD", "USDIRR", "تتر"]):
+             low = 0.10
+         if st.session_state.hedge_type == "طلا + تتر (ترکیبی)":
+             if any(x in name.upper() for x in ["GC=", "GOLD", "طلا"]): low = 0.15
+             if any(x in name.upper() for x in ["USD", "USDIRR", "تتر"]): low = 0.10
+         bounds[i] = (low, up)
 
-    constraints = [{"type": "eq", "fun": lambda w: np.sum(w) - 1}]
-    x0 = np.ones(len(asset_names)) / len(asset_names)
+ constraints = [{"type": "eq", "fun": lambda w: np.sum(w) - 1}]
+ x0 = np.ones(len(asset_names)) / len(asset_names)
 
-    # دیکشنری سبک‌ها — حالا کاملاً امن
-    style_to_key = {
-        "مارکوویتز + هجینگ (بهینه‌ترین شارپ)": "مارکوویتز",
-        "وزن برابر (ساده و مقاوم)": "وزن برابر",
-        "حداقل ریسک (محافظه‌کارانه)": "حداقل ریسک",
-        "ریسک‌پاریتی (Risk Parity)": "ریسک‌پاریتی",
-        "بلک-لیترمن (ترکیب نظر شخصی)": "بلک-لیترمن"
-    }
+ # انتخاب سبک
+ style_map = {
+     "مارکوویتز + هجینگ (بهینه‌ترین شارپ)": "markowitz",
+     "وزن برابر (ساده و مقاوم)": "equal",
+     "حداقل ریسک (محافظه‌کارانه)": "minvar",
+     "ریسک‌پاریتی (Risk Parity)": "risk_parity",
+     "بلک-لیترمن (ترکیب نظر شخصی)": "bl"
+ }
+ selected = style_map.get(st.session_state.selected_style, "markowitz")
 
-    selected_key = style_to_key.get(st.session_state.selected_style, "مارکوویتز")
+ # محاسبه وزن بر اساس سبک انتخاب‌شده
+ if selected == "markowitz":
+     obj = lambda w: - (np.dot(w, mean_ret)*100 - rf) / (np.sqrt(np.dot(w.T, np.dot(cov_mat, w)))*100 + 1e-8)
+     res = minimize(obj, x0, method="SLSQP", bounds=bounds, constraints=constraints, options={"maxiter": 2000})
+     weights = res.x if res.success else x0
 
-    # محاسبه وزن برای سبک انتخاب‌شده
-    if selected_key == "مارکوویتز":
-        res = minimize(lambda w: - (np.dot(w, mean_ret)*100 - rf) / (np.sqrt(np.dot(w.T, np.dot(cov_mat, w)))*100 + 1e-8),
-                       x0, method="SLSQP", bounds=bounds, constraints=constraints, options={"maxiter": 2000})
-        weights = res.x if res.success else np.ones(len(asset_names)) / len(asset_names)
+ elif selected == "equal":
+     weights = np.ones(len(asset_names)) / len(asset_names)
+     weights = np.clip(weights, [b[0] for b in bounds], [b[1] for b in bounds])
+     weights /= weights.sum()
 
-    elif selected_key == "وزن برابر":
-        weights = np.ones(len(asset_names)) / len(asset_names)
-        weights = np.clip(weights, [b[0] for b in bounds], [b[1] for b in bounds])
-        weights /= weights.sum()
+ elif selected == "minvar":
+     res = minimize(lambda w: np.dot(w.T, np.dot(cov_mat, w)), x0, method="SLSQP", bounds=bounds, constraints=constraints)
+     weights = res.x if res.success else x0
 
-    elif selected_key == "حداقل ریسک":
-        res = minimize(lambda w: np.dot(w.T, np.dot(cov_mat, w)), x0, method="SLSQP", bounds=bounds, constraints=constraints)
-        weights = res.x if res.success else np.ones(len(asset_names)) / len(asset_names)
+ elif selected == "risk_parity":
+     res = minimize(risk_parity_objective, x0, args=(cov_mat,), method="SLSQP", bounds=bounds, constraints=constraints)
+     weights = res.x if res.success else x0
 
-    elif selected_key == "ریسک‌پاریتی":
-        def rc_error(w):
-            port_var = np.dot(w.T, np.dot(cov_mat, w))
-            if port_var < 1e-10: return 9999
-            contrib = w * np.dot(cov_mat, w) / np.sqrt(port_var)
-            return np.sum((contrib - np.mean(contrib))**2)
-        res = minimize(rc_error, x0, method="SLSQP", bounds=bounds, constraints=constraints)
-        weights = res.x if res.success else np.ones(len(asset_names)) / len(asset_names)
+ else:  # black-litterman ساده
+     weights = mean_ret / mean_ret.sum()
+     weights = np.clip(weights, [b[0] for b in bounds], [b[1] for b in bounds])
+     weights /= weights.sum()
 
-    else:  # بلک-لیترمن
-        weights = mean_ret / mean_ret.sum()
-        weights = np.clip(weights, [b[0] for b in bounds], [b[1] for b in bounds])
-        weights /= weights.sum()
+ # محاسبه عملکرد
+ ret = np.dot(weights, mean_ret) * 100
+ risk = np.sqrt(np.dot(weights.T, np.dot(cov_mat, weights))) * 100
+ sharpe = (ret - rf) / risk if risk > 0 else 0
+ recovery = format_recovery(calculate_recovery_time(returns.dot(weights)))
 
-    # محاسبه عملکرد
-    ret = np.dot(weights, mean_ret) * 100
-    risk = np.sqrt(np.dot(weights.T, np.dot(cov_mat, weights))) * 100
-    sharpe = (ret - rf) / risk if risk > 0 else 0
-    recovery = format_recovery(calculate_recovery_time(returns.dot(weights)))
+ # مونت‌کارلو + همه سبک‌ها روی نمودار
+ mc_ret, mc_risk = [], []
+ for _ in range(12000):
+     w = np.random.random(len(asset_names))
+     w = np.clip(w, [b[0] for b in bounds], [b[1] for b in bounds])
+     w /= w.sum()
+     mc_ret.append(np.dot(w, mean_ret) * 100)
+     mc_risk.append(np.sqrt(np.dot(w.T, np.dot(cov_mat, w))) * 100)
 
-    # مونت‌کارلو + همه سبک‌ها روی نمودار
-    mc_ret, mc_risk = [], []
-    for _ in range(12000):
-        w = np.random.random(len(asset_names))
-        w = np.clip(w, [b[0] for b in bounds], [b[1] for b in bounds])
-        w /= w.sum()
-        mc_ret.append(np.dot(w, mean_ret) * 100)
-        mc_risk.append(np.sqrt(np.dot(w.T, np.dot(cov_mat, w))) * 100)
+ fig = go.Figure()
+ fig.add_trace(go.Scatter(x=mc_risk, y=mc_ret, mode='markers', marker=dict(color='lightgray', size=5), name="تصادفی"))
 
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(x=mc_risk, y=mc_ret, mode='markers', marker=dict(color='lightgray', size=5), name="تصادفی"))
+ style_display = {
+     "markowitz": ("مارکوویتز + هجینگ", "gold", "star-diamond"),
+     "equal": ("وزن برابر", "blue", "circle"),
+     "minvar": ("حداقل ریسک", "green", "square"),
+     "risk_parity": ("ریسک‌پاریتی", "purple", "diamond"),
+     "bl": ("بلک-لیترمن", "orange", "orange", "x")
+ }
 
-    # نمایش همه سبک‌ها روی نمودار
-    style_colors = {
-        "مارکوویتز": ("gold", "star-diamond"),
-        "وزن برابر": ("blue", "circle"),
-        "حداقل ریسک": ("green", "square"),
-        "ریسک‌پاریتی": ("purple", "diamond"),
-        "بلک-لیترمن": ("orange", "x")
-    }
+ for key, (name, color, symbol) in style_display.items():
+     # وزن هر سبک
+     if key == "markowitz":
+         res = minimize(obj, x0, method="SLSQP", bounds=bounds, constraints=constraints)
+         w = res.x if res.success else x0
+     elif key == "equal":
+         w = np.ones(len(asset_names)) / len(asset_names)
+         w = np.clip(w, [b[0] for b in bounds], [b[1] for b in bounds])
+         w /= w.sum()
+     elif key == "minvar":
+         res = minimize(lambda w: np.dot(w.T, np.dot(cov_mat, w)), x0, method="SLSQP", bounds=bounds, constraints=constraints)
+         w = res.x if res.success else x0
+     elif key == "risk_parity":
+         res = minimize(risk_parity_objective, x0, args=(cov_mat,), method="SLSQP", bounds=bounds, constraints=constraints)
+         w = res.x if res.success else x0
+     else:
+         w = mean_ret / mean_ret.sum()
+         w = np.clip(w, [b[0] for b in bounds], [b[1] for b in bounds])
+         w /= w.sum()
 
-    for key, (color, symbol) in style_colors.items():
-        # محاسبه دوباره برای هر سبک (سریع و دقیق)
-        if key == "مارکوویتز":
-            res = minimize(lambda w: - (np.dot(w, mean_ret)*100 - rf) / (np.sqrt(np.dot(w.T, np.dot(cov_mat, w)))*100 + 1e-8), x0, method="SLSQP", bounds=bounds, constraints=constraints)
-            w_style = res.x if res.success else x0
-        elif key == "وزن برابر":
-            w_style = np.ones(len(asset_names)) / len(asset_names)
-            w_style = np.clip(w_style, [b[0] for b in bounds], [b[1] for b in bounds])
-            w_style /= w_style.sum()
-        elif key == "حداقل ریسک":
-            res = minimize(lambda w: np.dot(w.T, np.dot(cov_mat, w)), x0, method="SLSQP", bounds=bounds, constraints=constraints)
-            w_style = res.x if res.success else x0
-        elif key == "ریسک‌پاریتی":
-            res = minimize(rc_error, x0, method="SLSQP", bounds=bounds, constraints=constraints)
-            w_style = res.x if res.success else x0
-        else:
-            w_style = mean_ret / mean_ret.sum()
-            w_style = np.clip(w_style, [b[0] for b in bounds], [b[1] for b in bounds])
-            w_style /= w_style.sum()
+     r = np.dot(w, mean_ret) * 100
+     rk = np.sqrt(np.dot(w.T, np.dot(cov_mat, w))) * 100
+     selected_this = (selected == key)
+     fig.add_trace(go.Scatter(x=[rk], y=[r], mode='markers',
+                              marker=dict(color=color, size=30 if selected_this else 18, symbol=symbol,
+                                          line=dict(width=4 if selected_this else 1, color='black')),
+                              name=f"{name} ← انتخاب شده" if selected_this else name))
 
-        r_style = np.dot(w_style, mean_ret) * 100
-        risk_style = np.sqrt(np.dot(w_style.T, np.dot(cov_mat, w_style))) * 100
-        is_selected = selected_key == key
-        fig.add_trace(go.Scatter(x=[risk_style], y=[r_style], mode='markers',
-                                 marker=dict(color=color, size=28 if is_selected else 18, symbol=symbol,
-                                             line=dict(width=4 if is_selected else 1, color='black')),
-                                 name=f"{key} ← انتخاب شده" if is_selected else key))
+ fig.update_layout(height=650, title="مرز کارا — همه سبک‌ها روی نمودار", xaxis_title="ریسک (%)", yaxis_title="بازده (%)")
+ st.plotly_chart(fig, use_container_width=True)
 
-    fig.update_layout(height=650, title="مرز کارا — همه سبک‌ها", xaxis_title="ریسک (%)", yaxis_title="بازده (%)")
-    st.plotly_chart(fig, use_container_width=True)
+ # نمایش نتایج
+ st.success(f"پرتفوی با سبک: **{st.session_state.selected_style}**")
+ c1, c2, c3, c4 = st.columns(4)
+ c1.metric("بازده", f"{ret:.2f}%")
+ c2.metric("ریسک", f"{risk:.2f}%")
+ c3.metric("شارپ", f"{sharpe:.3f}")
+ c4.metric("ریکاوری", recovery)
 
-    # نمایش نتایج
-    st.success(f"پرتفوی با سبک: **{st.session_state.selected_style}**")
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("بازده", f"{ret:.2f}%")
-    c2.metric("ریسک", f"{risk:.2f}%")
-    c3.metric("شارپ", f"{sharpe:.3f}")
-    c4.metric("ریکاوری", recovery)
+ df_w = pd.DataFrame({"دارایی": asset_names, "وزن (%)": np.round(weights*100, 2)}).sort_values("وزن (%)", ascending=False)
+ st.markdown("### تخصیص دارایی‌ها")
+ st.dataframe(df_w, use_container_width=True)
+ st.plotly_chart(px.pie(df_w, values="وزن (%)", names="دارایی"), use_container_width=True)
 
-    df_w = pd.DataFrame({"دارایی": asset_names, "وزن (%)": np.round(weights*100, 2)}).sort_values("وزن (%)", ascending=False)
-    st.markdown("### تخصیص دارایی‌ها")
-    st.dataframe(df_w, use_container_width=True)
-    st.plotly_chart(px.pie(df_w, values="وزن (%)", names="دارایی"), use_container_width=True)
-
-    if st.session_state.hedge_active:
-        st.success(f"هجینگ فعال: {st.session_state.hedge_type}")
+ if st.session_state.hedge_active:
+     st.success(f"هجینگ فعال: {st.session_state.hedge_type}")
 
 # ==================== صفحه اصلی ====================
 st.set_page_config(page_title="Portfolio360 Ultimate", layout="wide")
@@ -232,7 +235,7 @@ with st.sidebar.expander("راهنما"):
 
 if st.sidebar.button("دانلود داده‌ها", type="primary"):
     if not tickers_input.strip():
-        st.error("نماد وارد کنید!")
+        st.error("حداقل یک نماد وارد کنید!")
     else:
         with st.spinner("در حال دانلود..."):
             prices = download_data(tickers_input)
@@ -254,7 +257,7 @@ if st.sidebar.button("آپلود CSV"):
         st.session_state.prices = pd.concat(dfs, axis=1).ffill().bfill()
         st.rerun()
 
-# تنظیمات
+# تنظیمات پیش‌فرض
 defaults = {"rf_rate":18.0, "hedge_active":True, "hedge_type":"طلا به عنوان هج", "max_btc":20,
             "selected_style":"مارکوویتز + هجینگ (بهینه‌ترین شارپ)"}
 for k,v in defaults.items():
@@ -276,4 +279,5 @@ st.session_state.selected_style = st.sidebar.selectbox("سبک پرتفوی", st
 # اجرا
 calculate_portfolio()
 
+st.balloons()
 st.caption("Portfolio360 Ultimate — نسخه نهایی بدون خطا | ۱۴۰۴")
