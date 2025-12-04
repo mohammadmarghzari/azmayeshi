@@ -10,7 +10,7 @@ warnings.filterwarnings("ignore")
 
 # ==================== دانلود داده ====================
 @st.cache_data(show_spinner=False)
-def download_data(tickers_str, period):
+def download_data(tickers_str, period="5y"):
     tickers = [t.strip() for t in tickers_str.split(",") if t.strip()]
     data = {}
     failed = []
@@ -28,16 +28,17 @@ def download_data(tickers_str, period):
         return None
     prices = pd.DataFrame(data).ffill().bfill()
     if failed:
-        st.warning(f"نمادهای ناموفق: {', '.join(failed)}")
+        st.warning(f"دانلود نشد: {', '.join(failed)}")
     return prices
 
-# ==================== توابع ریسک ====================
+# ==================== توابع کمکی ====================
 def calculate_recovery_time(ret_series):
     cum = (1 + ret_series).cumprod()
     peak = cum.cummax()
     dd = cum / peak - 1
-    in_dd = False
     recoveries = []
+    in_dd = False
+    start = None
     for i in range(1, len(cum)):
         if dd.iloc[i] < -0.01:
             if not in_dd:
@@ -53,20 +54,16 @@ def format_recovery(days):
         return "بدون افت جدی"
     months = int(days / 21)
     years, months = divmod(months, 12)
-    if years > 0 and months > 0:
-        return f"{years} سال و {months} ماه"
-    elif years > 0:
-        return f"{years} سال"
-    elif months > 0:
-        return f"{months} ماه"
-    else:
-        return "کمتر از ۱ ماه"
+    if years and months: return f"{years} سال و {months} ماه"
+    if years: return f"{years} سال"
+    if months: return f"{months} ماه"
+    return "کمتر از ۱ ماه"
 
-# ==================== محاسبه پرتفوی با تمام سبک‌ها ====================
+# ==================== محاسبه پرتفوی (بدون ریست) ====================
 @st.fragment
 def calculate_portfolio():
     if st.session_state.get("prices") is None:
-        st.info("لطفاً ابتدا داده‌ها را دانلود یا آپلود کنید.")
+        st.info("لطفاً داده‌ها را دانلود یا آپلود کنید.")
         return
 
     prices = st.session_state.prices
@@ -100,13 +97,13 @@ def calculate_portfolio():
 
     style = st.session_state.selected_style
 
-    # تمام سبک‌ها (واقعاً کار می‌کنن!)
+    # تمام سبک‌ها — واقعاً کار می‌کنند!
     if style == "مارکوویتز + هجینگ (بهینه‌ترین شارپ)":
         def neg_sharpe(w):
             r = np.dot(w, mean_ret) * 100
             risk = np.sqrt(np.dot(w.T, np.dot(cov_mat, w))) * 100
             return -(r - rf) / risk if risk > 0 else 9999
-        res = minimize(neg_sharpe, x0, method="SLSQP", bounds=bounds, constraints=constraints)
+        res = minimize(neg_sharpe, x0, method="SLSQP", bounds=bounds, constraints=constraints, options={"maxiter": 2000})
         weights = res.x if res.success else x0
 
     elif style == "وزن برابر (ساده و مقاوم)":
@@ -122,8 +119,8 @@ def calculate_portfolio():
 
     elif style == "ریسک‌پاریتی (Risk Parity)":
         def rc_error(w):
-            port_risk = np.sqrt(np.dot(w.T, np.dot(cov_mat, w)))
-            contrib = w * np.dot(cov_mat, w) / port_risk
+            port_var = np.dot(w.T, np.dot(cov_mat, w))
+            contrib = w * np.dot(cov_mat, w) / np.sqrt(port_var)
             target = np.mean(contrib)
             return np.sum((contrib - target)**2)
         res = minimize(rc_error, x0, method="SLSQP", bounds=bounds, constraints=constraints)
@@ -134,14 +131,14 @@ def calculate_portfolio():
         weights = np.clip(weights, [b[0] for b in bounds], [b[1] for b in bounds])
         weights /= weights.sum()
 
-    # محاسبه نهایی
+    # عملکرد نهایی
     ret = np.dot(weights, mean_ret) * 100
     risk = np.sqrt(np.dot(weights.T, np.dot(cov_mat, weights))) * 100
     sharpe = (ret - rf) / risk if risk > 0 else 0
     recovery = format_recovery(calculate_recovery_time(returns.dot(weights)))
 
     # نمایش
-    st.success(f"پرتفوی با سبک «{style}» ساخته شد!")
+    st.success(f"پرتفوی با سبک «{style}» آماده است!")
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("بازده سالیانه", f"{ret:.2f}%")
     c2.metric("ریسک سالیانه", f"{risk:.2f}%")
@@ -151,21 +148,19 @@ def calculate_portfolio():
     df_w = pd.DataFrame({"دارایی": asset_names, "وزن (%)": np.round(weights*100, 2)}).sort_values("وزن (%)", ascending=False)
     st.markdown("### تخصیص دارایی‌ها")
     st.dataframe(df_w, use_container_width=True)
-
-    fig_pie = px.pie(df_w, values="وزن (%)", names="دارایی", title="توزیع دارایی‌ها")
-    st.plotly_chart(fig_pie, use_container_width=True)
+    st.plotly_chart(px.pie(df_w, values="وزن (%)", names="دارایی", title="توزیع دارایی‌ها"), use_container_width=True)
 
     # مرز کارا
     st.subheader("مرز کارا")
-    mc_r, mc_v = [], []
+    mc_ret, mc_risk = [], []
     for _ in range(10000):
         w = np.random.random(len(asset_names))
         w = np.clip(w, [b[0] for b in bounds], [b[1] for b in bounds])
         w /= w.sum()
-        mc_r.append(np.dot(w, mean_ret) * 100)
-        mc_v.append(np.sqrt(np.dot(w.T, np.dot(cov_mat, w))) * 100)
+        mc_ret.append(np.dot(w, mean_ret) * 100)
+        mc_risk.append(np.sqrt(np.dot(w.T, np.dot(cov_mat, w))) * 100)
     fig = go.Figure()
-    fig.add_trace(go.Scatter(x=mc_v, y=mc_r, mode='markers', marker=dict(color='lightgray'), name="تصادفی"))
+    fig.add_trace(go.Scatter(x=mc_risk, y=mc_ret, mode='markers', marker=dict(color='lightgray', size=5), name="تصادفی"))
     fig.add_trace(go.Scatter(x=[risk], y=[ret], mode='markers', marker=dict(color='gold', size=22, symbol='star'), name="پرتفوی شما"))
     fig.update_layout(height=600, xaxis_title="ریسک (%)", yaxis_title="بازده (%)")
     st.plotly_chart(fig, use_container_width=True)
@@ -176,30 +171,26 @@ def calculate_portfolio():
 # ==================== صفحه اصلی + لوگو ====================
 st.set_page_config(page_title="Portfolio360 Ultimate", layout="wide")
 
-# لوگو آپلود شده توسط شما
+# لوگو
 st.sidebar.header("لوگوی شما")
-uploaded_logo = st.sidebar.file_uploader("لوگوی خودت رو آپلود کن", type=["png","jpg","jpeg","webp","svg"])
-
+uploaded_logo = st.sidebar.file_uploader("لوگو آپلود کن", type=["png","jpg","jpeg","webp","svg"])
 if uploaded_logo:
     st.session_state.logo = uploaded_logo
     st.sidebar.success("لوگو آپلود شد!")
 
-# نمایش لوگو + عنوان
 col1, col2, col3 = st.columns([1, 3, 1])
 with col2:
     if "logo" in st.session_state:
         st.image(st.session_state.logo, use_column_width=True)
     else:
         st.markdown("<h1 style='text-align: center; color: #00d2d3;'>Portfolio360 Ultimate</h1>", unsafe_allow_html=True)
-        st.markdown("<p style='text-align: center; color: gray;'>ابزار حرفه‌ای پرتفوی با ۵ سبک واقعی و هجینگ هوشمند</p>", unsafe_allow_html=True)
 
 st.markdown("---")
 
 # منبع داده
 st.sidebar.header("منبع داده")
 if st.sidebar.button("دانلود از Yahoo Finance", type="primary"):
-    default = "BTC-USD,ETH-USD,GC=F,^GSPC,USDIRR=X"
-    tickers = st.sidebar.text_input("نمادها", value=default)
+    tickers = st.sidebar.text_input("نمادها", "BTC-USD,ETH-USD,GC=F,^GSPC,USDIRR=X")
     period = st.sidebar.selectbox("بازه", ["1y","3y","5y","max"], index=2)
     prices = download_data(tickers, period)
     if prices is not None:
@@ -209,23 +200,15 @@ if st.sidebar.button("دانلود از Yahoo Finance", type="primary"):
 if st.sidebar.button("آپلود CSV"):
     uploaded = st.sidebar.file_uploader("فایل‌ها", type="csv", accept_multiple_files=True)
     if uploaded:
-        dfs = []
-        for f in uploaded:
-            df = pd.read_csv(f)
-            name = f.name.replace(".csv","")
-            col = "Adj Close" if "Adj Close" in df.columns else "Close"
-            df["Date"] = pd.to_datetime(df["Date"])
-            df.set_index("Date", inplace=True)
-            dfs.append(df[[col]].rename(columns={col: name}))
-        st.session_state.prices = pd.concat(dfs, axis=1).ffill().bfill()
-        st.rerun()
+        dfs = [pd.read_csv(f).set_index("Date")[[col]] for f in uploaded for col in ["Adj Close","Close"] if col in pd.read_csv(f).columns]
+        if dfs:
+            st.session_state.prices = pd.concat(dfs, axis=1).ffill().bfill()
+            st.rerun()
 
-# تنظیمات
-st.sidebar.header("تنظیمات")
+# تنظیمات بدون ریست
 defaults = {"rf_rate":18.0, "hedge_active":True, "hedge_type":"طلا به عنوان هج", "max_btc":20, "selected_style":"مارکوویتز + هجینگ (بهینه‌ترین شارپ)"}
 for k,v in defaults.items():
-    if k not in st.session_state:
-        st.session_state[k] = v
+    if k not in st.session_state: st.session_state[k] = v
 
 st.session_state.rf_rate = st.sidebar.number_input("نرخ بدون ریسک (%)", 0.0, 50.0, st.session_state.rf_rate, 0.5)
 st.session_state.hedge_active = st.sidebar.checkbox("هجینگ هوشمند", st.session_state.hedge_active)
@@ -236,29 +219,22 @@ if st.session_state.hedge_active:
 st.session_state.max_btc = st.sidebar.slider("حداکثر بیت‌کوین (%)", 0, 100, st.session_state.max_btc)
 
 # انتخاب سبک + توضیح
-style_options = [
-    "مارکوویتز + هجینگ (بهینه‌ترین شارپ)",
-    "وزن برابر (ساده و مقاوم)",
-    "حداقل ریسک (محافظه‌کارانه)",
-    "ریسک‌پاریتی (Risk Parity)",
-    "بلک-لیترمن (ترکیب نظر شخصی)"
-]
-current = style_options.index(st.session_state.selected_style)
-st.session_state.selected_style = st.sidebar.selectbox("سبک پرتفوی", style_options, index=current)
+styles = ["مارکوویتز + هجینگ (بهینه‌ترین شارپ)","وزن برابر (ساده و مقاوم)","حداقل ریسک (محافظه‌کارانه)","ریسک‌پاریتی (Risk Parity)","بلک-لیترمن (ترکیب نظر شخصی)"]
+idx = styles.index(st.session_state.selected_style)
+st.session_state.selected_style = st.sidebar.selectbox("سبک پرتفوی", styles, index=idx)
 
-with st.sidebar.expander("توضیح سبک انتخاب‌شده"):
-    s = st.session_state.selected_style
+with st.sidebar.expander("توضیح سبک"):
     explanations = {
         "مارکوویتز + هجینگ (بهینه‌ترین شارپ)": "بالاترین بازده به ریسک — مناسب اکثر افراد",
-        "وزن برابر (ساده و مقاوم)": "هیچ پیش‌بینی نمی‌خواهد — در بلندمدت عالی",
+        "وزن برابر (ساده و مقاوم)": "هیچ پیش‌بینی نمی‌خواهد — بلندمدت عالی",
         "حداقل ریسک (محافظه‌کارانه)": "کمترین نوسان — خواب راحت",
         "ریسک‌پاریتی (Risk Parity)": "هر دارایی ریسک برابر بدهد — تنوع واقعی",
-        "بلک-لیترمن (ترکیب نظر شخصی)": "نظر شما هم وارد محاسبه می‌شه — حرفه‌ای"
+        "بلک-لیترمن (ترکیب نظر شخصی)": "نظر شما هم وارد محاسبه می‌شه"
     }
-    st.write(explanations[s])
+    st.write(explanations[st.session_state.selected_style])
 
 # محاسبه خودکار
 calculate_portfolio()
 
 st.balloons()
-st.caption("Portfolio360 Ultimate — نسخه نهایی با لوگو + ۵ سبک واقعی | ۱۴۰۴")
+st.caption("Portfolio360 Ultimate — نسخه نهایی | بدون ریست | با لوگو و ۵ سبک واقعی | ۱۴۰۴")
