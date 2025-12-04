@@ -68,7 +68,7 @@ def risk_parity_objective(w, cov_mat):
     target = np.mean(risk_contrib)
     return np.sum((risk_contrib - target) ** 2)
 
-# ==================== محاسبه پرتفوی — بدون هیچ خطایی ====================
+# ==================== محاسبه پرتفوی ====================
 @st.fragment
 def calculate_portfolio():
     if st.session_state.get("prices") is None:
@@ -97,16 +97,13 @@ def calculate_portfolio():
             if st.session_state.hedge_type == "طلا + تتر (ترکیبی)":
                 if any(x in name.upper() for x in ["GC=", "GOLD", "طلا"]): low = 0.15
                 if any(x in name.upper() for x in ["USD", "USDIRR", "تتر"]): low = 0.10
-        # اگر low > up شد، اصلاح کن
-        if low > up:
-            low = 0.0
-            up = 1.0
+        if low > up:  # جلوگیری از خطای bounds
+            low, up = 0.0, 1.0
         bounds.append((float(low), float(up)))
 
     constraints = [{"type": "eq", "fun": lambda w: np.sum(w) - 1}]
     x0 = np.ones(len(asset_names)) / len(asset_names)
 
-    # انتخاب سبک
     style_map = {
         "مارکوویتز + هجینگ (بهینه‌ترین شارپ)": "markowitz",
         "وزن برابر (ساده و مقاوم)": "equal",
@@ -116,7 +113,6 @@ def calculate_portfolio():
     }
     selected = style_map.get(st.session_state.selected_style, "markowitz")
 
-    # محاسبه وزن
     try:
         if selected == "markowitz":
             obj = lambda w: -(np.dot(w, mean_ret)*100 - rf) / (np.sqrt(np.dot(w.T, np.dot(cov_mat, w)))*100 + 1e-8)
@@ -136,7 +132,7 @@ def calculate_portfolio():
             res = minimize(risk_parity_objective, x0, args=(cov_mat,), method="SLSQP", bounds=bounds, constraints=constraints, options={"maxiter": 3000})
             weights = res.x if res.success else x0
 
-        else:  # black-litterman
+        else:
             weights = mean_ret / mean_ret.sum()
             weights = np.nan_to_num(weights, nan=1.0/len(weights))
             weights = np.clip(weights, [b[0] for b in bounds], [b[1] for b in bounds])
@@ -146,18 +142,15 @@ def calculate_portfolio():
         st.error(f"خطا در بهینه‌سازی: {str(e)}")
         weights = x0
 
-    # نرمال‌سازی نهایی
     weights = np.clip(weights, 0, 1)
     if weights.sum() > 0:
         weights /= weights.sum()
 
-    # عملکرد
     ret = np.dot(weights, mean_ret) * 100
     risk = np.sqrt(np.dot(weights.T, np.dot(cov_mat, weights))) * 100
     sharpe = (ret - rf) / risk if risk > 0 else 0
     recovery = format_recovery(calculate_recovery_time(returns.dot(weights)))
 
-    # مونت‌کارلو
     mc_ret, mc_risk = [], []
     for _ in range(12000):
         w = np.random.random(len(asset_names))
@@ -169,7 +162,6 @@ def calculate_portfolio():
     fig = go.Figure()
     fig.add_trace(go.Scatter(x=mc_risk, y=mc_ret, mode='markers', marker=dict(color='lightgray', size=5), name="تصادفی"))
 
-    # نمایش همه سبک‌ها
     styles_info = {
         "markowitz": ("مارکوویتز + هجینگ", "gold", "star-diamond"),
         "equal": ("وزن برابر", "blue", "circle"),
@@ -215,7 +207,6 @@ def calculate_portfolio():
     fig.update_layout(height=650, title="مرز کارا — همه سبک‌ها", xaxis_title="ریسک (%)", yaxis_title="بازده (%)")
     st.plotly_chart(fig, use_container_width=True)
 
-    # نمایش نتایج
     st.success(f"پرتفوی با سبک: **{st.session_state.selected_style}**")
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("بازده", f"{ret:.2f}%")
@@ -251,8 +242,7 @@ st.markdown("---")
 
 # منبع داده
 st.sidebar.header("دانلود از Yahoo Finance")
-tickers_input = st.sidebar.text_input("نمادها (با کاما)", value="", placeholder="BTC-USD, GC=F, ^GSPC")
-
+tickers_input = st.sidebar.text_input("نمادها (با کاما)", value="", placeholder="BTC-USD, GC=F, USDIRR=X")
 with st.sidebar.expander("راهنما"):
     st.write("BTC-USD → بیت‌کوین\nGC=F → طلا\nUSDIRR=X → دلار\n^GSPC → بورس آمریکا")
 
@@ -283,7 +273,7 @@ if st.sidebar.button("آپلود CSV"):
             st.rerun()
 
 # تنظیمات پیش‌فرض
-defaults = {"rf_rate":18.0, "hedge_active":True, "hedge_type":"طلا به عنوان هج", "max_btc":20,
+defaults = {"rf_rate":18.0, "hedge_active":True, "hedge_type":"طلا + تتر (ترکیبی)", "max_btc":20,
             "selected_style":"مارکوویتز + هجینگ (بهینه‌ترین شارپ)"}
 for k, v in defaults.items():
     if k not in st.session_state:
@@ -291,11 +281,31 @@ for k, v in defaults.items():
 
 st.session_state.rf_rate = st.sidebar.number_input("نرخ بدون ریسک (%)", 0.0, 50.0, st.session_state.rf_rate, 0.5)
 st.session_state.hedge_active = st.sidebar.checkbox("هجینگ هوشمند", st.session_state.hedge_active)
+
 if st.session_state.hedge_active:
     opts = ["طلا به عنوان هج","دلار/تتر","طلا + تتر (ترکیبی)","پوزیشن شورت بیت‌کوین","آپشن Put","پرتفوی معکوس","استراتژی Collar","Tail-Risk Hedge"]
-    idx = opts.index(st.session_state.hedge_type) if st.session_state.hedge_type in opts else 0
+    idx = opts.index(st.session_state.hedge_type) if st.session_state.hedge_type in opts else 2  # پیش‌فرض ترکیبی
     st.session_state.hedge_type = st.sidebar.selectbox("نوع هجینگ", opts, index=idx)
+
 st.session_state.max_btc = st.sidebar.slider("حداکثر بیت‌کوین (%)", 0, 100, st.session_state.max_btc)
+
+# === جدول حرفه‌ای هجینگ   ===
+with st.sidebar.expander("راهنمای کامل استراتژی‌های هجینگ", expanded=True):
+    st.markdown("""
+    <style>
+    .hedge-table td, .hedge-table th {padding: 10px; text-align: center; font-size: 15px;}
+    .best {background: #d4edda; font-weight: bold; color: #155724;}
+    </style>
+    <table class="hedge-table" style="width:100%; border-collapse: collapse;">
+    <tr style="background:#f8f9fa;"><th>استراتژی</th><th>حداقل دارایی امن</th><th>بهترین زمان</th><th>ایران ۱۴۰۴</th></tr>
+    <tr><td>طلا به عنوان هج</td><td>۱۵٪ طلا</td><td>تورم، جنگ</td><td class="best">عالی</td></tr>
+    <tr><td>دلار/تتر</td><td>۱۰٪ دلار</td><td>ریال در حال سقوط</td><td class="best">ضروری!</td></tr>
+    <tr style="background:#fff3cd;"><td><strong>طلا + تتر (ترکیبی)</strong></td><td><strong>۱۵٪ طلا + ۱۰٪ دلار</strong></td><td><strong>الان!</strong></td><td class="best"><strong>توصیه شماره ۱</strong></td></tr>
+    <tr><td>پوزیشن شورت بیت‌کوین</td><td>کاهش بیت‌کوین</td><td>حباب بیت‌کوین</td><td>خوب</td></tr>
+    <tr><td>Tail-Risk Hedge</td><td>۳۰٪ طلا + ۱۵٪ دلار</td><td>فروپاشی</td><td>فقط برای پول زیاد</td></tr>
+    </table>
+    """, unsafe_allow_html=True)
+    st.info("برای اکثر ایرانی‌ها → **طلا + تتر (ترکیبی)** بهترین انتخاب است!")
 
 styles = ["مارکوویتز + هجینگ (بهینه‌ترین شارپ)","وزن برابر (ساده و مقاوم)","حداقل ریسک (محافظه‌کارانه)",
           "ریسک‌پاریتی (Risk Parity)","بلک-لیترمن (ترکیب نظر شخصی)"]
@@ -306,4 +316,4 @@ st.session_state.selected_style = st.sidebar.selectbox("سبک پرتفوی", st
 calculate_portfolio()
 
 st.balloons()
-st.caption("Portfolio360 Ultimate — نسخه نهایی بدون هیچ خطایی | ۱۴۰۴")
+st.caption("Portfolio360 Ultimate — بهترین ابزار سرمایه‌گذاری ایرانی | ۱۴۰۴ | با عشق برای شما")
