@@ -8,10 +8,7 @@ import warnings
 import io
 import base64
 from datetime import datetime
-
-# این خط‌ها مستقیم ایمپورت میشن — چون در requirements.txt هستن
-from pypfopt import EfficientFrontier, risk_models, expected_returns
-from pypfopt.exceptions import OptimizationError
+from scipy.optimize import minimize  # جایگزین PyPortfolioOpt — همیشه کار می‌کنه!
 
 warnings.filterwarnings("ignore")
 
@@ -48,47 +45,66 @@ def download_data(tickers_str, period="5y"):
     
     return data
 
-# ==================== تحلیل با PyPortfolioOpt ====================
+# ==================== تحلیل با Scipy (جایگزین PyPortfolioOpt) ====================
 def analyze_portfolio(prices, hedge_type, max_btc_pct):
     if len(prices.columns) < 2:
         st.error("حداقل ۲ دارایی برای بهینه‌سازی نیاز است!")
         return {}, (0, 0, 0)
 
-    mu = expected_returns.mean_historical_return(prices)
-    S = risk_models.sample_cov(prices)
-    ef = EfficientFrontier(mu, S, weight_bounds=(0, 1))
+    returns = prices.pct_change().dropna()
+    mu = returns.mean() * 252  # بازده سالیانه
+    cov = returns.cov() * 252  # کوواریانس سالیانه
 
-    # محدودیت بیت‌کوین
-    btc_col = next((col for col in prices.columns if "BTC" in col.upper()), None)
-    if btc_col is not None:
-        idx = prices.columns.get_loc(btc_col)
-        ef.add_constraint(lambda w, i=idx: w[i] <= max_btc_pct / 100)
+    n_assets = len(prices.columns)
+    asset_names = prices.columns.tolist()
+
+    def neg_sharpe(weights, mu, cov, rf=0.30):  # منفی شارپ برای minimize
+        port_ret = np.dot(weights, mu)
+        port_vol = np.sqrt(np.dot(weights.T, np.dot(cov, weights)))
+        return -(port_ret - rf) / port_vol if port_vol > 0 else 0
+
+    # محدودیت‌ها: جمع وزن‌ها = 1، وزن‌ها >=0
+    constraints = ({'type': 'eq', 'fun': lambda x: np.sum(x) - 1})
+    bounds = tuple((0, 1) for _ in range(n_assets))
+
+    # محدودیت BTC
+    btc_idx = next((i for i, name in enumerate(asset_names) if "BTC" in name.upper()), None)
+    if btc_idx is not None:
+        constraints.append({'type': 'ineq', 'fun': lambda x: max_btc_pct / 100 - x[btc_idx]})
 
     # هجینگ ایرانی
-    gold_col = next((col for col in prices.columns if any(x in col.upper() for x in ["GC=", "GOLD", "طلا"])), None)
-    dollar_col = next((col for col in prices.columns if any(x in col.upper() for x in ["USD", "USDIRR", "تتر", "USDT"])), None)
+    gold_idx = next((i for i, name in enumerate(asset_names) if any(x in name.upper() for x in ["GC=", "GOLD", "طلا"])), None)
+    dollar_idx = next((i for i, name in enumerate(asset_names) if any(x in name.upper() for x in ["USD", "USDIRR", "تتر", "USDT"])), None)
 
     if hedge_type == "طلا + تتر (ترکیبی)":
-        if gold_col: ef.add_constraint(lambda w: w[prices.columns.get_loc(gold_col)] >= 0.15)
-        if dollar_col: ef.add_constraint(lambda w: w[prices.columns.get_loc(dollar_col)] >= 0.10)
-    elif hedge_type == "طلا به عنوان هج" and gold_col:
-        ef.add_constraint(lambda w: w[prices.columns.get_loc(gold_col)] >= 0.15)
-    elif hedge_type == "دلار/تتر" and dollar_col:
-        ef.add_constraint(lambda w: w[prices.columns.get_loc(dollar_col)] >= 0.10)
+        if gold_idx: constraints.append({'type': 'ineq', 'fun': lambda x: x[gold_idx] - 0.15})
+        if dollar_idx: constraints.append({'type': 'ineq', 'fun': lambda x: x[dollar_idx] - 0.10})
+    elif hedge_type == "طلا به عنوان هج" and gold_idx:
+        constraints.append({'type': 'ineq', 'fun': lambda x: x[gold_idx] - 0.15})
+    elif hedge_type == "دلار/تتر" and dollar_idx:
+        constraints.append({'type': 'ineq', 'fun': lambda x: x[dollar_idx] - 0.10})
 
+    # بهینه‌سازی
+    init_guess = np.array([1/n_assets] * n_assets)
     try:
-        weights = ef.max_sharpe(risk_free_rate=0.30)  # نرخ بدون ریسک ایران ≈۳۰٪
-        cleaned = ef.clean_weights()
-        perf = ef.portfolio_performance(risk_free_rate=0.30)
-        return cleaned, perf
+        result = minimize(neg_sharpe, init_guess, args=(mu, cov), method='SLSQP', bounds=bounds, constraints=constraints)
+        if result.success:
+            weights = dict(zip(asset_names, result.x))
+            port_ret = np.dot(result.x, mu)
+            port_vol = np.sqrt(np.dot(result.x.T, np.dot(cov, result.x)))
+            sharpe = (port_ret - 0.30) / port_vol if port_vol > 0 else 0
+            return weights, (port_ret * 100, port_vol * 100, sharpe)
     except:
-        st.warning("بهینه‌سازی ناموفق — وزن برابر استفاده شد")
-        w = 1 / len(prices.columns)
-        weights = {col: w for col in prices.columns}
-        ret = prices.pct_change().mean().mean() * 252
-        vol = prices.pct_change().std().mean() * np.sqrt(252)
-        sharpe = (ret - 0.30) / vol if vol > 0 else 0
-        return weights, (ret*100, vol*100, sharpe)
+        pass
+
+    # fallback: وزن برابر
+    st.warning("بهینه‌سازی ناموفق — وزن برابر استفاده شد")
+    w = 1 / n_assets
+    weights = {name: w for name in asset_names}
+    ret = mu.mean() * 100
+    vol = np.sqrt(np.diag(cov)).mean() * 100
+    sharpe = (ret/100 - 0.30) / (vol/100) if vol > 0 else 0
+    return weights, (ret, vol, sharpe)
 
 # ==================== صفحه اصلی ====================
 st.set_page_config(page_title="Portfolio360 Pro – ایران", layout="wide")
@@ -97,7 +113,7 @@ st.set_page_config(page_title="Portfolio360 Pro – ایران", layout="wide")
 c1, c2, c3 = st.columns([1,3,1])
 with c2:
     st.markdown("<h1 style='text-align: center; color: #00d2d3;'>Portfolio360 Pro</h1>", unsafe_allow_html=True)
-    st.markdown("<h3 style='text-align: center; color: gold;'>بهینه‌ساز پرتفوی حرفه‌ای وال‌استریت — مخصوص ایران</h3>", unsafe_allow_html=True)
+    st.markdown("<h3 style='text-align: center; color: gold;'>بهینه‌ساز پرتفوی حرفه‌ای — مخصوص ایران (با Scipy)</h3>", unsafe_allow_html=True)
 
 st.sidebar.header("تنظیمات پرتفوی")
 
@@ -114,7 +130,7 @@ hedge_type = st.sidebar.selectbox(
 
 max_btc = st.sidebar.slider("حداکثر بیت‌کوین (%)", 0, 100, 20, 5)
 
-if st.sidebar.button("🚀 تحلیل پرتفوی با PyPortfolioOpt", type="primary"):
+if st.sidebar.button("🚀 تحلیل پرتفوی", type="primary"):
     prices = download_data(tickers)
     if prices.empty:
         st.stop()
@@ -168,4 +184,4 @@ if st.sidebar.button("تغییر تم"):
     st.session_state.theme = "light" if st.session_state.theme == "dark" else "dark"
     st.rerun()
 
-st.caption("Portfolio360 Pro — اولین ابزار بهینه‌سازی پرتفوی حرفه‌ای فارسی | ۱۴۰۴ | با عشق برای ایران")
+st.caption("Portfolio360 Pro — بهینه‌سازی پرتفوی حرفه‌ای فارسی | ۱۴۰۴ | با عشق برای ایران (نسخه Scipy)")
