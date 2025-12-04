@@ -82,7 +82,7 @@ def calculate_portfolio():
     cov_mat = returns.cov() * 252
     rf = st.session_state.rf_rate
 
-    # محدودیت‌ها — همیشه low <= up
+    # محدودیت‌ها
     bounds = []
     for name in asset_names:
         low = 0.0
@@ -97,7 +97,7 @@ def calculate_portfolio():
             if st.session_state.hedge_type == "طلا + تتر (ترکیبی)":
                 if any(x in name.upper() for x in ["GC=", "GOLD", "طلا"]): low = 0.15
                 if any(x in name.upper() for x in ["USD", "USDIRR", "تتر"]): low = 0.10
-        if low > up:  # جلوگیری از خطای bounds
+        if low > up:
             low, up = 0.0, 1.0
         bounds.append((float(low), float(up)))
 
@@ -151,6 +151,7 @@ def calculate_portfolio():
     sharpe = (ret - rf) / risk if risk > 0 else 0
     recovery = format_recovery(calculate_recovery_time(returns.dot(weights)))
 
+    # مونت‌کارلو
     mc_ret, mc_risk = [], []
     for _ in range(12000):
         w = np.random.random(len(asset_names))
@@ -169,6 +170,8 @@ def calculate_portfolio():
         "risk_parity": ("ریسک‌پاریتی", "purple", "diamond"),
         "bl": ("بلک-لیترمن", "orange", "x")
     }
+
+    obj = lambda w: -(np.dot(w, mean_ret)*100 - rf) / (np.sqrt(np.dot(w.T, np.dot(cov_mat, w)))*100 + 1e-8)
 
     for key, (name, color, symbol) in styles_info.items():
         try:
@@ -284,18 +287,16 @@ st.session_state.hedge_active = st.sidebar.checkbox("هجینگ هوشمند", s
 
 if st.session_state.hedge_active:
     opts = ["طلا به عنوان هج","دلار/تتر","طلا + تتر (ترکیبی)","پوزیشن شورت بیت‌کوین","آپشن Put","پرتفوی معکوس","استراتژی Collar","Tail-Risk Hedge"]
-    idx = opts.index(st.session_state.hedge_type) if st.session_state.hedge_type in opts else 2  # پیش‌فرض ترکیبی
+    idx = opts.index(st.session_state.hedge_type) if st.session_state.hedge_type in opts else 2
     st.session_state.hedge_type = st.sidebar.selectbox("نوع هجینگ", opts, index=idx)
 
 st.session_state.max_btc = st.sidebar.slider("حداکثر بیت‌کوین (%)", 0, 100, st.session_state.max_btc)
 
-# === جدول حرفه‌ای هجینگ   ===
+# 1. جدول هجینگ
 with st.sidebar.expander("راهنمای کامل استراتژی‌های هجینگ", expanded=True):
     st.markdown("""
-    <style>
-    .hedge-table td, .hedge-table th {padding: 10px; text-align: center; font-size: 15px;}
-    .best {background: #d4edda; font-weight: bold; color: #155724;}
-    </style>
+    <style>.hedge-table td, .hedge-table th {padding: 10px; text-align: center; font-size: 15px;}
+    .best {background: #d4edda; font-weight: bold; color: #155724;}</style>
     <table class="hedge-table" style="width:100%; border-collapse: collapse;">
     <tr style="background:#f8f9fa;"><th>استراتژی</th><th>حداقل دارایی امن</th><th>بهترین زمان</th><th>ایران ۱۴۰۴</th></tr>
     <tr><td>طلا به عنوان هج</td><td>۱۵٪ طلا</td><td>تورم، جنگ</td><td class="best">عالی</td></tr>
@@ -307,6 +308,71 @@ with st.sidebar.expander("راهنمای کامل استراتژی‌های هج
     """, unsafe_allow_html=True)
     st.info("برای اکثر ایرانی‌ها → **طلا + تتر (ترکیبی)** بهترین انتخاب است!")
 
+# 2. جدول ریاضی دقیق هر سبک (!)
+with st.sidebar.expander("توضیح ریاضی دقیق هر سبک پرتفوی", expanded=False):
+    st.markdown("""
+    <style>
+    .math-table td, .math-table th {padding: 12px 8px; text-align: center; font-size: 14.5px; line-height: 1.6;}
+    .highlight {background: #fff8e1; font-weight: bold;}
+    </style>
+    <table class="math-table" style="width:100%; border-collapse: collapse;">
+    <tr style="background:#263238; color:white;">
+        <th>سبک پرتفوی</th>
+        <th>هدف بهینه‌سازی</th>
+        <th>فرمول ریاضی</th>
+        <th>توضیح کوتاه</th>
+    </tr>
+    <tr class="highlight">
+        <td><strong>مارکوویتز + هجینگ</strong></td>
+        <td>حداکثر کردن نسبت شارپ</td>
+        <td>max <sub>w</sub> <strong>(Rₚ − R<sub>f</sub>) / σₚ</strong><br>Rₚ = wᵀμ σₚ = √(wᵀΣw)</td>
+        <td>بهترین بازده به ازای هر واحد ریسک</td>
+    </tr>
+    <tr>
+        <td>وزن برابر</td>
+        <td>بدون بهینه‌سازی</td>
+        <td><strong>wᵢ = 1/N</strong></td>
+        <td>ساده و اغلب بهترین در بلندمدت</td>
+    </tr>
+    <tr>
+        <td>حداقل ریسک</td>
+        <td>حداقل واریانس</td>
+        <td>min <sub>w</sub> <strong>wᵀΣw</strong></td>
+        <td>محافظه‌کارانه‌ترین پرتفوی</td>
+    </tr>
+    <tr>
+        <td>ریسک‌پاریتی</td>
+        <td>ریسک مساوی هر دارایی</td>
+        <td>min Σ(|RCᵢ − RCⱼ|²)</td>
+        <td>عملکرد عالی در بحران</td>
+    </tr>
+    <tr>
+        <td>بلک-لیترمن</td>
+        <td>ترکیب نظر شخصی</td>
+        <td>μ<sub>BL</sub> = پیچیده ولی قدرتمند</td>
+        <td>وقتی نظر قوی داری</td>
+    </tr>
+    </table>
+    """, unsafe_allow_html=True)
+    st.caption("μ = بازده مورد انتظار Σ = ماتریس کوواریانس Rₚ = بازده پرتفو σₚ = ریسک پرتفو")
+
+# 3. جدول راهنمای کاربری سبک‌ها
+with st.sidebar.expander("راهنمای کامل سبک‌های پرتفوی", expanded=True):
+    st.markdown("""
+    <style>.style-table td, .style-table th {padding: 11px; text-align: center; font-size: 15px;}
+    .top {background: #d4edda; font-weight: bold;}</style>
+    <table class="style-table" style="width:100%; border-collapse: collapse;">
+    <tr style="background:#e3f2fd;"><th>سبک</th><th>هدف اصلی</th><th>مناسب چه کسانی؟</th><th>پیشنهاد من</th></tr>
+    <tr><td><strong>مارکوویتز + هجینگ</strong></td><td>حداکثر شارپ</td><td>همه — به‌خصوص با هجینگ</td><td class="top">شماره ۱ برای ایرانی‌ها</td></tr>
+    <tr><td>وزن برابر</td><td>سادگی</td><td>کسایی که نمی‌خوان پیچیده کنن</td><td class="top">عالی و مقاوم</td></tr>
+    <tr><td>حداقل ریسک</td><td>کمترین نوسان</td><td>ریسک‌گریز، نزدیک بازنشستگی</td><td>خیلی محافظه‌کارانه</td></tr>
+    <tr><td>ریسک‌پاریتی</td><td>ریسک برابر</td><td>حرفه‌ای‌ها، صندوق‌ها</td><td>عالی در بلندمدت</td></tr>
+    <tr><td>بلک-لیترمن</td><td>نظر شخصی</td><td>وقتی پیش‌بینی قوی داری</td><td>برای حرفه‌ای‌ها</td></tr>
+    </table>
+    """, unsafe_allow_html=True)
+    st.success("پیشنهاد من: **مارکوویتز + هجینگ** یا **وزن برابر**")
+
+# انتخاب سبک
 styles = ["مارکوویتز + هجینگ (بهینه‌ترین شارپ)","وزن برابر (ساده و مقاوم)","حداقل ریسک (محافظه‌کارانه)",
           "ریسک‌پاریتی (Risk Parity)","بلک-لیترمن (ترکیب نظر شخصی)"]
 idx = styles.index(st.session_state.selected_style) if st.session_state.selected_style in styles else 0
@@ -316,4 +382,4 @@ st.session_state.selected_style = st.sidebar.selectbox("سبک پرتفوی", st
 calculate_portfolio()
 
 st.balloons()
-st.caption("Portfolio360 Ultimate — بهترین ابزار سرمایه‌گذاری ایرانی | ۱۴۰۴ | با عشق برای شما")
+st.caption("Portfolio360 Ultimate — بهترین ابزار سرمایه‌گذاری ایرانی | ۱۴۰۴ | با عشق ساخته شد")
