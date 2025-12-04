@@ -53,12 +53,9 @@ def format_recovery(days):
         return "بدون افت جدی"
     months = int(days / 21)
     years, months = divmod(months, 12)
-    if years and months:
-        return f"{years} سال و {months} ماه"
-    if years:
-        return f"{years} سال"
-    if months:
-        return f"{months} ماه"
+    if years and months: return f"{years} سال و {months} ماه"
+    if years: return f"{years} سال"
+    if months: return f"{months} ماه"
     return "کمتر از ۱ ماه"
 
 # ==================== تابع ریسک‌پاریتی ====================
@@ -85,27 +82,29 @@ def calculate_portfolio():
     cov_mat = returns.cov() * 252
     rf = st.session_state.rf_rate
 
-    # محدودیت‌ها — همیشه float و tuple
+    # محدودیت‌ها — همیشه low <= up
     bounds = []
     for name in asset_names:
         low = 0.0
         up = 1.0
         if st.session_state.hedge_active:
             if any(x in name.upper() for x in ["BTC", "بیت"]):
-                up = float(st.session_state.max_btc) / 100.0
+                up = st.session_state.max_btc / 100.0
             if st.session_state.hedge_type == "طلا به عنوان هج" and any(x in name.upper() for x in ["GC=", "GOLD", "طلا"]):
                 low = 0.15
             if st.session_state.hedge_type == "دلار/تتر" and any(x in name.upper() for x in ["USD", "USDIRR", "تتر"]):
                 low = 0.10
             if st.session_state.hedge_type == "طلا + تتر (ترکیبی)":
-                if any(x in name.upper() for x in ["GC=", "GOLD", "طلا"]):
-                    low = 0.15
-                if any(x in name.upper() for x in ["USD", "USDIRR", "تتر"]):
-                    low = 0.10
-        bounds.append((float(low), float(up)))  # حتماً float و tuple
+                if any(x in name.upper() for x in ["GC=", "GOLD", "طلا"]): low = 0.15
+                if any(x in name.upper() for x in ["USD", "USDIRR", "تتر"]): low = 0.10
+        # اگر low > up شد، اصلاح کن
+        if low > up:
+            low = 0.0
+            up = 1.0
+        bounds.append((float(low), float(up)))
 
     constraints = [{"type": "eq", "fun": lambda w: np.sum(w) - 1}]
-    x0 = np.array([1.0 / len(asset_names)] * len(asset_names))
+    x0 = np.ones(len(asset_names)) / len(asset_names)
 
     # انتخاب سبک
     style_map = {
@@ -121,7 +120,7 @@ def calculate_portfolio():
     try:
         if selected == "markowitz":
             obj = lambda w: -(np.dot(w, mean_ret)*100 - rf) / (np.sqrt(np.dot(w.T, np.dot(cov_mat, w)))*100 + 1e-8)
-            res = minimize(obj, x0, method="SLSQP", bounds=bounds, constraints=constraints, options={"maxiter": 3000, "ftol": 1e-9})
+            res = minimize(obj, x0, method="SLSQP", bounds=bounds, constraints=constraints, options={"maxiter": 3000})
             weights = res.x if res.success else x0
 
         elif selected == "equal":
@@ -180,7 +179,6 @@ def calculate_portfolio():
     }
 
     for key, (name, color, symbol) in styles_info.items():
-        # محاسبه وزن برای نمایش روی نمودار
         try:
             if key == "markowitz":
                 res = minimize(obj, x0, method="SLSQP", bounds=bounds, constraints=constraints)
