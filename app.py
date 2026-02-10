@@ -118,32 +118,38 @@ def plot_forecast_single(price_series, asset_name):
     ))
     
     # پیش‌بینی نرمال (50 درصدیل)
+    median_forecast = np.percentile(paths, 50, axis=1)
     fig.add_trace(go.Scatter(
-        y=np.percentile(paths, 50, axis=1),
+        y=median_forecast,
         name="پیش‌بینی نرمال (۳ ماه)",
         mode="lines",
         line=dict(color="orange", width=2)
     ))
     
     # سناریوی خوش‌بینانه
+    optimistic = np.percentile(paths, 85, axis=1)
     fig.add_trace(go.Scatter(
-        y=np.percentile(paths, 85, axis=1),
+        y=optimistic,
         name="سناریو خوش‌بینانه (85%)",
         mode="lines",
         line=dict(dash="dot", color="green")
     ))
     
     # سناریوی بدبینانه
+    pessimistic = np.percentile(paths, 15, axis=1)
     fig.add_trace(go.Scatter(
-        y=np.percentile(paths, 15, axis=1),
+        y=pessimistic,
         name="سناریو بدبینانه (15%)",
         mode="lines",
         line=dict(dash="dot", color="red")
     ))
     
-    # منطقه عدم قطعیت
+    # منطقه عدم قطعیت (75% تا 25%)
+    upper_bound = np.percentile(paths, 75, axis=1)
+    lower_bound = np.percentile(paths, 25, axis=1)
+    
     fig.add_trace(go.Scatter(
-        y=np.percentile(paths, 75, axis=1),
+        y=upper_bound,
         fill=None,
         mode="lines",
         line_color="rgba(0,0,0,0)",
@@ -152,7 +158,7 @@ def plot_forecast_single(price_series, asset_name):
     ))
     
     fig.add_trace(go.Scatter(
-        y=np.percentile(paths, 25, axis=1),
+        y=lower_bound,
         fill='tonexty',
         mode="lines",
         line_color="rgba(0,0,0,0)",
@@ -172,18 +178,15 @@ def plot_forecast_single(price_series, asset_name):
     return fig
 
 # ==================== ماشین حساب تخصیص دارایی ====================
-def capital_allocator_calculator(weights, asset_names, total_usd):
+def capital_allocator_calculator(weights, asset_names, total_usd, exchange_rate):
     """محاسبه جزئیات خریداری برای هر دارایی"""
-    
-    # نرخ تبدیل (میتوان به API حقی��ی تغییر داد)
-    usd_to_toman = 200_000_000 / 1200  # تقریبی
     
     allocation_data = []
     
     for i, asset in enumerate(asset_names):
         weight = weights[i]
         amount_usd = weight * total_usd
-        amount_toman = amount_usd * usd_to_toman
+        amount_toman = amount_usd * (exchange_rate / 1_000_000)
         amount_rial = amount_toman * 10
         
         allocation_data.append({
@@ -459,7 +462,7 @@ def calculate_portfolio():
             st.write("")
 
         # محاسبه تخصیص
-        df_alloc = capital_allocator_calculator(weights, asset_names, total_usd)
+        df_alloc = capital_allocator_calculator(weights, asset_names, total_usd, exchange_rate)
         
         st.markdown("#### جزئیات خریداری:")
         st.dataframe(
@@ -523,14 +526,19 @@ def calculate_portfolio():
                 fig = plot_forecast_single(price_series, asset)
                 st.plotly_chart(fig, use_container_width=True)
                 
-                # آمار پیش‌بینی
+                # آمار پیش‌بینی - ✅ اصلاح شده
                 paths = forecast_price_series(price_series, forecast_days, sims=500)
                 
+                # محاسبه آمار درست
+                percentile_50 = np.percentile(paths, 50, axis=1)[-1]
+                percentile_85 = np.percentile(paths, 85, axis=1)[-1]
+                percentile_15 = np.percentile(paths, 15, axis=1)[-1]
+                
                 col1, col2, col3, col4 = st.columns(4)
-                col1.metric("🎯 قیمت پیش‌بینی شده", f"${np.percentile(paths, 50)[-1]:.2f}")
-                col2.metric("📈 سناریو خوش‌بینانه", f"${np.percentile(paths, 85)[-1]:.2f}")
-                col3.metric("📉 سناریو بدبینانه", f"${np.percentile(paths, 15)[-1]:.2f}")
-                col4.metric("📊 صعود احتمالی", f"{((np.percentile(paths, 50)[-1] / current_price - 1) * 100):.1f}%")
+                col1.metric("🎯 قیمت پیش‌بینی شده", f"${percentile_50:.2f}")
+                col2.metric("📈 سناریو خوش‌بینانه", f"${percentile_85:.2f}")
+                col3.metric("📉 سناریو بدبینانه", f"${percentile_15:.2f}")
+                col4.metric("📊 صعود احتمالی", f"{((percentile_50 / current_price - 1) * 100):.1f}%")
                 
                 st.markdown("---")
 
@@ -699,4 +707,4 @@ with st.sidebar:
 calculate_portfolio()
 
 st.balloons()
-st.caption("✨ Portfolio360 Ultimate Pro v2.0 — تمام ۱۴ سبک + تخصیص دقیق + پیش‌بینی + بک‌تست | ۱۴۰۴ | ❤️ با عشق برای ایران")
+st.caption("✨ Portfolio360 Ultimate Pro v2.1 — تمام ۱۴ سبک + تخ��یص دقیق + پیش‌بینی تصحیح شده + بک‌تست | ۱۴۰۴ | ❤️ با عشق برای ایران")
