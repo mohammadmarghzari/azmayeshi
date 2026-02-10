@@ -375,6 +375,60 @@ def get_portfolio_weights(style, returns, mean_ret, cov_mat, rf, bounds):
         st.warning(f"خطا در {style}: {str(e)[:50]} — وزن برابر استفاده شد")
         return x0
 
+# ==================== محاسبه ریسک پرتفو با Protective Put ====================
+def calculate_portfolio_with_protective_put(returns, weights, cov_mat, asset_names, 
+                                           btc_premium_pct=0.0, eth_premium_pct=0.0,
+                                           btc_strike=None, eth_strike=None):
+    """
+    محاسبه ریسک پرتفوی با احساب تاثیر Protective Put
+    """
+    
+    # محاسبه ریسک بدون بیمه
+    original_risk = np.sqrt(np.dot(weights.T, np.dot(cov_mat, weights))) * 100
+    
+    # کپی وزن‌ها برای محاسبه تاثیر بیمه
+    adjusted_weights = weights.copy()
+    
+    # محاسبه تاثیر بیمه برای BTC و ETH
+    btc_idx = None
+    eth_idx = None
+    
+    for i, name in enumerate(asset_names):
+        if "BTC" in name.upper():
+            btc_idx = i
+        if "ETH" in name.upper():
+            eth_idx = i
+    
+    # تنظیم ریسک بر اساس بیمه
+    # Protective Put کاهش volatility را شبیه‌سازی می‌کند
+    if btc_idx is not None and btc_premium_pct > 0:
+        # هرچه premium بیشتر، محافظت بیشتر
+        protection_factor_btc = 1.0 - (btc_premium_pct / 100.0) * 0.5
+        adjusted_weights[btc_idx] *= protection_factor_btc
+    
+    if eth_idx is not None and eth_premium_pct > 0:
+        protection_factor_eth = 1.0 - (eth_premium_pct / 100.0) * 0.5
+        adjusted_weights[eth_idx] *= protection_factor_eth
+    
+    # نرمال‌سازی وزن‌ها
+    if adjusted_weights.sum() > 0:
+        adjusted_weights /= adjusted_weights.sum()
+    
+    # محاسبه ریسک جدید
+    new_risk = np.sqrt(np.dot(adjusted_weights.T, np.dot(cov_mat, adjusted_weights))) * 100
+    
+    # محاسبه کاهش ریسک
+    risk_reduction = original_risk - new_risk
+    risk_reduction_pct = (risk_reduction / original_risk * 100) if original_risk > 0 else 0
+    
+    return {
+        "original_risk": original_risk,
+        "new_risk": new_risk,
+        "risk_reduction": risk_reduction,
+        "risk_reduction_pct": risk_reduction_pct,
+        "adjusted_weights": adjusted_weights
+    }
+
 # ==================== محاسبه پرتفوی ====================
 @st.fragment
 def calculate_portfolio():
@@ -424,7 +478,7 @@ def calculate_portfolio():
     recovery = format_recovery(calculate_recovery_time(returns.dot(weights)))
 
     # ==================== تب‌ها ====================
-    tab1, tab2, tab3, tab4 = st.tabs(["📊 خلاصه", "💰 تخصیص دارایی", "🔮 پیش‌بینی قیمت", "📈 بک‌تست"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 خلاصه", "💰 تخصیص دارایی", "🔮 پیش‌بینی قیمت", "📈 بک‌تست", "🛡️ Protective Put"])
 
     with tab1:
         st.markdown("### 📋 خلاصه پرتفوی")
@@ -526,7 +580,7 @@ def calculate_portfolio():
                 fig = plot_forecast_single(price_series, asset)
                 st.plotly_chart(fig, use_container_width=True)
                 
-                # آمار پیش‌بینی - ✅ اصلاح شده
+                # آمار پیش‌بینی
                 paths = forecast_price_series(price_series, forecast_days, sims=500)
                 
                 # محاسبه آمار درست
@@ -594,6 +648,299 @@ def calculate_portfolio():
         )
         st.plotly_chart(fig_back, use_container_width=True)
 
+    with tab5:
+        st.markdown("### 🛡️ Protective Put برای کاهش ریسک")
+        st.info("""
+        📌 **Protective Put** یک استراتژی بیمه است که:
+        - تعداد قراردادهای Long Put برای محافظت خریداری می‌کنید
+        - اگر قیمت دارایی سقوط کند، Put سود می‌دهد
+        - اگر قیمت بالا برود، فقط premium از دست می‌رود
+        - نتیجه: محافظت از سقوط‌های شدید با هزینه معقول
+        """)
+        
+        st.markdown("---")
+        
+        # پیدا کردن BTC و ETH
+        btc_col = None
+        eth_col = None
+        
+        for col in asset_names:
+            if "BTC" in col.upper():
+                btc_col = col
+            if "ETH" in col.upper():
+                eth_col = col
+        
+        if btc_col is None or eth_col is None:
+            st.error("❌ برای استراتژی Protective Put، نیاز به BTC-USD و ETH-USD دارید!")
+            st.info(f"📊 دارایی‌های موجود: {', '.join(asset_names)}")
+            return
+        
+        st.markdown("#### 📝 مشخصات قرارداد Protective Put")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("##### 🔵 BTC-USD")
+            btc_price = prices[btc_col].iloc[-1]
+            st.write(f"**قیمت فعلی:** ${btc_price:,.2f}")
+            
+            btc_strike = st.number_input(
+                "Strike Price (ضربه) برای BTC ($)",
+                min_value=btc_price * 0.70,
+                max_value=btc_price * 0.99,
+                value=btc_price * 0.90,
+                step=100.0,
+                key="btc_strike"
+            )
+            
+            btc_premium = st.number_input(
+                "Premium (حق‌العمل) برای هر قرارداد BTC ($)",
+                min_value=0.0,
+                max_value=btc_price * 0.20,
+                value=btc_price * 0.04,
+                step=100.0,
+                key="btc_premium"
+            )
+            
+            btc_contracts = st.number_input(
+                "تعداد قراردادهای Put برای BTC",
+                min_value=1,
+                max_value=100,
+                value=1,
+                key="btc_contracts"
+            )
+            
+            btc_contract_size = st.number_input(
+                "تعداد BTC در هر قرارداد",
+                min_value=0.1,
+                max_value=100.0,
+                value=1.0,
+                step=0.1,
+                key="btc_size"
+            )
+            
+            btc_expiry = st.date_input(
+                "تاریخ انقضا قرارداد BTC",
+                value=(datetime.now() + timedelta(days=45)).date(),
+                key="btc_expiry"
+            )
+        
+        with col2:
+            st.markdown("##### 🟢 ETH-USD")
+            eth_price = prices[eth_col].iloc[-1]
+            st.write(f"**قیمت فعلی:** ${eth_price:,.2f}")
+            
+            eth_strike = st.number_input(
+                "Strike Price (ضربه) برای ETH ($)",
+                min_value=eth_price * 0.70,
+                max_value=eth_price * 0.99,
+                value=eth_price * 0.90,
+                step=10.0,
+                key="eth_strike"
+            )
+            
+            eth_premium = st.number_input(
+                "Premium (حق‌العمل) برای هر قرارداد ETH ($)",
+                min_value=0.0,
+                max_value=eth_price * 0.20,
+                value=eth_price * 0.04,
+                step=10.0,
+                key="eth_premium"
+            )
+            
+            eth_contracts = st.number_input(
+                "تعداد قراردادهای Put برای ETH",
+                min_value=1,
+                max_value=100,
+                value=1,
+                key="eth_contracts"
+            )
+            
+            eth_contract_size = st.number_input(
+                "تعداد ETH در هر قرارداد",
+                min_value=0.1,
+                max_value=1000.0,
+                value=1.0,
+                step=0.1,
+                key="eth_size"
+            )
+            
+            eth_expiry = st.date_input(
+                "تاریخ انقضا قرارداد ETH",
+                value=(datetime.now() + timedelta(days=45)).date(),
+                key="eth_expiry"
+            )
+        
+        st.markdown("---")
+        
+        # محاسبات
+        # BTC
+        btc_total_premium = btc_premium * btc_contracts * btc_contract_size
+        btc_total_premium_pct = (btc_total_premium / (btc_price * btc_contract_size * btc_contracts)) * 100 if (btc_price * btc_contract_size * btc_contracts) > 0 else 0
+        btc_max_loss = (btc_price - btc_strike) * btc_contract_size * btc_contracts
+        btc_max_loss_pct = (btc_max_loss / (btc_price * btc_contract_size * btc_contracts)) * 100 if (btc_price * btc_contract_size * btc_contracts) > 0 else 0
+        
+        # ETH
+        eth_total_premium = eth_premium * eth_contracts * eth_contract_size
+        eth_total_premium_pct = (eth_total_premium / (eth_price * eth_contract_size * eth_contracts)) * 100 if (eth_price * eth_contract_size * eth_contracts) > 0 else 0
+        eth_max_loss = (eth_price - eth_strike) * eth_contract_size * eth_contracts
+        eth_max_loss_pct = (eth_max_loss / (eth_price * eth_contract_size * eth_contracts)) * 100 if (eth_price * eth_contract_size * eth_contracts) > 0 else 0
+        
+        st.markdown("#### 📊 تحلیل تفصیلی")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("##### 📈 تجزیه BTC")
+            st.metric("💰 کل Premium پرداختی", f"${btc_total_premium:,.2f}")
+            st.metric("📊 Premium (% قیمت)", f"{btc_total_premium_pct:.3f}%")
+            st.metric("🛡️ محافظت تا", f"${btc_strike:,.2f}")
+            st.metric("📉 حداکثر ضرر (سقوط)", f"${btc_max_loss:,.2f}")
+            st.metric("📉 حداکثر ضرر (%)", f"{btc_max_loss_pct:.3f}%")
+            
+            st.markdown("**💡 نتیجه:**")
+            if btc_max_loss_pct <= 2.0:
+                st.success(f"✅ ریسک BTC کاهش یافته است: {btc_max_loss_pct:.3f}% < 2%")
+            else:
+                st.warning(f"⚠️ ریسک BTC هنوز بالاتر از 2% است: {btc_max_loss_pct:.3f}%")
+        
+        with col2:
+            st.markdown("##### 📈 تجزیه ETH")
+            st.metric("💰 کل Premium پرداختی", f"${eth_total_premium:,.2f}")
+            st.metric("📊 Premium (% قیمت)", f"{eth_total_premium_pct:.3f}%")
+            st.metric("🛡️ محافظت تا", f"${eth_strike:,.2f}")
+            st.metric("📉 حداکثر ضرر (سقوط)", f"${eth_max_loss:,.2f}")
+            st.metric("📉 حداکثر ضرر (%)", f"{eth_max_loss_pct:.3f}%")
+            
+            st.markdown("**💡 نتیجه:**")
+            if eth_max_loss_pct <= 2.0:
+                st.success(f"✅ ریسک ETH کاهش یافته است: {eth_max_loss_pct:.3f}% < 2%")
+            else:
+                st.warning(f"⚠️ ریسک ETH هنوز بالاتر از 2% است: {eth_max_loss_pct:.3f}%")
+        
+        st.markdown("---")
+        
+        # محاسبه ریسک پرتفوی با Protective Put
+        st.markdown("#### 🎯 تاثیر بیمه بر ریسک کل پرتفوی")
+        
+        # ریسک بدون بیمه
+        original_portfolio_risk = np.sqrt(np.dot(weights.T, np.dot(cov_mat, weights))) * 100
+        
+        # محاسبه ریسک با بیمه
+        result = calculate_portfolio_with_protective_put(
+            returns, weights, cov_mat, asset_names,
+            btc_premium_pct=btc_total_premium_pct,
+            eth_premium_pct=eth_total_premium_pct,
+            btc_strike=btc_strike,
+            eth_strike=eth_strike
+        )
+        
+        new_portfolio_risk = result['new_risk']
+        risk_reduction = result['risk_reduction']
+        risk_reduction_pct = result['risk_reduction_pct']
+        
+        col1, col2, col3 = st.columns(3)
+        col1.metric("📊 ریسک پرتفوی (بدون بیمه)", f"{original_portfolio_risk:.2f}%")
+        col2.metric("🛡️ ریسک پرتفوی (با بیمه)", f"{new_portfolio_risk:.2f}%")
+        col3.metric("📉 کاهش ریسک", f"{risk_reduction:.2f}% ({risk_reduction_pct:.2f}%)")
+        
+        # نمودار مقایسه
+        fig_risk = go.Figure()
+        
+        fig_risk.add_trace(go.Bar(
+            x=['بدون Protective Put', 'با Protective Put'],
+            y=[original_portfolio_risk, new_portfolio_risk],
+            name='ریسک پرتفوی',
+            marker=dict(color=['#ff6b6b', '#51cf66'])
+        ))
+        
+        fig_risk.update_layout(
+            title="📊 مقایسه ریسک پرتفوی",
+            yaxis_title="ریسک (%)",
+            height=400,
+            template='plotly_white',
+            showlegend=False
+        )
+        
+        st.plotly_chart(fig_risk, use_container_width=True)
+        
+        # خلاصه نهایی
+        st.markdown("---")
+        st.markdown("#### 📋 خلاصه نهایی")
+        
+        total_premium = btc_total_premium + eth_total_premium
+        
+        summary_data = {
+            "دارایی": ["BTC-USD", "ETH-USD", "کل"],
+            "قیمت فعلی": [f"${btc_price:,.2f}", f"${eth_price:,.2f}", "-"],
+            "Strike": [f"${btc_strike:,.2f}", f"${eth_strike:,.2f}", "-"],
+            "تعداد قراردادها": [btc_contracts, eth_contracts, btc_contracts + eth_contracts],
+            "Premium کل": [f"${btc_total_premium:,.2f}", f"${eth_total_premium:,.2f}", f"${total_premium:,.2f}"],
+            "حداکثر ضرر": [f"${btc_max_loss:,.2f}", f"${eth_max_loss:,.2f}", f"${btc_max_loss + eth_max_loss:,.2f}"],
+            "ریسک (%)": [f"{btc_max_loss_pct:.3f}%", f"{eth_max_loss_pct:.3f}%", "-"],
+            "تاریخ انقضا": [str(btc_expiry), str(eth_expiry), "-"]
+        }
+        
+        df_summary = pd.DataFrame(summary_data)
+        st.dataframe(df_summary, use_container_width=True, hide_index=True)
+        
+        # نمودار Payoff
+        st.markdown("---")
+        st.markdown("#### 📈 نمودار سود/ضرر Protective Put")
+        
+        # BTC Payoff
+        btc_price_range = np.linspace(btc_strike * 0.8, btc_price * 1.2, 100)
+        btc_payoff = []
+        for p in btc_price_range:
+            put_payoff = max(btc_strike - p, 0) * btc_contract_size * btc_contracts - btc_total_premium
+            btc_payoff.append(put_payoff)
+        
+        # ETH Payoff
+        eth_price_range = np.linspace(eth_strike * 0.8, eth_price * 1.2, 100)
+        eth_payoff = []
+        for p in eth_price_range:
+            put_payoff = max(eth_strike - p, 0) * eth_contract_size * eth_contracts - eth_total_premium
+            eth_payoff.append(put_payoff)
+        
+        fig_payoff = go.Figure()
+        
+        fig_payoff.add_trace(go.Scatter(
+            x=btc_price_range,
+            y=btc_payoff,
+            name="BTC Protective Put",
+            mode="lines",
+            line=dict(color="orange", width=2)
+        ))
+        
+        fig_payoff.add_trace(go.Scatter(
+            x=eth_price_range,
+            y=eth_payoff,
+            name="ETH Protective Put",
+            mode="lines",
+            line=dict(color="blue", width=2)
+        ))
+        
+        fig_payoff.add_hline(y=0, line_dash="dash", line_color="red")
+        fig_payoff.update_layout(
+            title="📊 نمودار سود/ضرر Protective Put",
+            xaxis_title="قیمت دارایی ($)",
+            yaxis_title="سود/ضرر ($)",
+            height=500,
+            hovermode='x unified',
+            template='plotly_white'
+        )
+        
+        st.plotly_chart(fig_payoff, use_container_width=True)
+        
+        # دانلود
+        csv_summary = df_summary.to_csv(index=False, encoding="utf-8-sig")
+        st.download_button(
+            label="📥 دانلود استراتژی Protective Put (CSV)",
+            data=csv_summary,
+            file_name=f"protective_put_strategy_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+            mime="text/csv"
+        )
+
 # ==================== صفحه اصلی + سایدبار ====================
 st.set_page_config(page_title="Portfolio360 Ultimate Pro", layout="wide")
 
@@ -613,7 +960,7 @@ with st.sidebar:
     st.header("📥 دانلود داده")
     tickers = st.text_input(
         "نمادهای دارایی (با کاما جدا کنید)",
-        "BTC-USD, GC=F, USDIRR=X, ^GSPC"
+        "BTC-USD, GC=F, USDIRR=X, ^GSPC, ETH-USD"
     )
     if st.button("🔄 دانلود داده", type="primary", use_container_width=True):
         with st.spinner("درحال دانلود..."):
@@ -701,10 +1048,12 @@ with st.sidebar:
         🔮 **پیش‌بینی قیمت** - Monte Carlo برای تمام دارایی‌ها
         
         📈 **بک‌تست واقعی** - اگر از قبل شروع کرده بودید چی می‌شد؟
+        
+        🛡️ **Protective Put** - بیمه‌گذاری برای BTC و ETH با تاثیر بر ریسک کل
         """)
 
 # اجرا
 calculate_portfolio()
 
 st.balloons()
-st.caption("✨ Portfolio360 Ultimate Pro v2.1 — تمام ۱۴ سبک + تخ��یص دقیق + پیش‌بینی تصحیح شده + بک‌تست | ۱۴۰۴ | ❤️ با عشق برای ایران")
+st.caption("✨ Portfolio360 Ultimate Pro v4.0 — تمام ۱۴ سبک + تخصیص دقیق + پیش‌بینی + بک‌تست + Protective Put با تاثیر ریسک | ۱۴۰۴ | ❤️ با عشق برای ایران")
