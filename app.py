@@ -1,3 +1,4 @@
+THE GHOST, [2/11/2026 01:37]
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -63,306 +64,106 @@ def format_recovery(days):
     if months: return f"{months} ماه"
     return "کمتر از ۱ ماه"
 
-def max_drawdown(returns):
-    if len(returns) == 0: return 0
-    cum = (1 + returns).cumprod()
-    peak = cum.cummax()
-    dd = (cum - peak) / peak
-    return dd.min() * 100
+# ==================== تخصیص سرمایه ====================
+def allocate_capital(weights, assets, total_usd):
+    rate_toman = 200_000_000 / 1200
+    df = pd.DataFrame({
+        "دارایی": assets,
+        "وزن (%)": np.round(weights * 100, 2),
+        "دلار ($)": np.round(weights * total_usd, 2),
+        "تومان": np.round(weights * total_usd * rate_toman, 0),
+        "ریال": np.round(weights * total_usd * rate_toman * 10, 0)
+    })
+    return df.sort_values("وزن (%)", ascending=False)
 
-# ==================== استراتژی‌های هجینگ و آپشن ====================
-hedge_strategies = {
-    "Barbell طالب (۹۰/۱۰)": {"gold_min": 0.45, "usd_min": 0.45, "btc_max": 0.10},
-    "Tail-Risk طالب": {"gold_min": 0.35, "usd_min": 0.35, "btc_max": 0.05},
-    "Antifragile طالب": {"gold_min": 0.40, "usd_min": 0.20, "btc_max": 0.40},
-    "طلا + تتر (ترکیبی)": {"gold_min": 0.15, "usd_min": 0.10, "btc_max": 0.20},
-    "حداقل هج": {"gold_min": 0.10, "usd_min": 0.00, "btc_max": 0.40},
-    "بدون هجینگ": {"gold_min": 0.00, "usd_min": 0.00, "btc_max": 1.00},
-}
+# ==================== پیش‌بینی قیمت (Monte Carlo) ====================
+def forecast_price_series(price_series, days=63, sims=400):
+    log_ret = np.log(price_series / price_series.shift(1)).dropna()
+    mu, sigma = log_ret.mean(), log_ret.std()
+    last_price = price_series.iloc[-1]
 
-option_strategies = {
-    "بدون آپشن": {"cost_pct": 0.0, "name": "بدون تغییر"},
-    "Protective Put": {"cost_pct": 4.8, "name": "بیمه کامل"},
-    "Collar": {"cost_pct": 0.4, "name": "هج کم‌هزینه"},
-    "Covered Call": {"cost_pct": -3.2, "name": "درآمد ماهانه"},
-    "Tail-Risk Put": {"cost_pct": 2.1, "name": "محافظت در سقوط"},
-}
+    paths = np.zeros((days, sims))
+    for i in range(sims):
+        prices = [last_price]
+        for _ in range(days):
+            prices.append(prices[-1] * np.exp(mu + sigma * np.random.normal()))
+        paths[:, i] = prices[1:]
+    return paths
 
-# ==================== تمام ۱۴ سبک حرفه‌ای — ۱۰۰٪ بدون خطا! ====================
-def get_portfolio_weights(style, returns, mean_ret, cov_mat, rf, bounds):
-    n = len(mean_ret)
-    x0 = np.ones(n) / n
-    constraints = [{"type": "eq", "fun": lambda w: np.sum(w) - 1}]
-    
-    try:
-        # 1. مارکوویتز + هجینگ
-        if style == "مارکوویتز + هجینگ (بهینه‌ترین شارپ)":
-            obj = lambda w: -(np.dot(mean_ret, w) - rf) / (np.sqrt(np.dot(w.T, np.dot(cov_mat, w))) + 1e-8)
-            res = minimize(obj, x0, method="SLSQP", bounds=bounds, constraints=constraints, options={"maxiter": 5000})
-            return res.x if res.success else x0
+def plot_forecast(prices, asset):
+    series = prices[asset]
+    ma150 = series.rolling(150).mean()
 
-        # 2. وزن برابر
-        elif style == "وزن برابر (ساده و مقاوم)":
-            w = np.ones(n) / n
-            w = np.clip(w, [b[0] for b in bounds], [b[1] for b in bounds])
-            w /= w.sum()
-            return w
+    paths = forecast_price_series(series, 63)
 
-        # 3. حداقل ریسک
-        elif style == "حداقل ریسک (محافظه‌کارانه)":
-            res = minimize(lambda w: np.dot(w.T, np.dot(cov_mat, w)), x0, method="SLSQP", bounds=bounds, constraints=constraints)
-            return res.x if res.success else x0
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(y=series, name="قیمت واقعی"))
+    fig.add_trace(go.Scatter(y=ma150, name="MA 150", line=dict(dash="dash")))
+    fig.add_trace(go.Scatter(
+        y=np.percentile(paths, 50, axis=1),
+        name="پیش‌بینی نرمال (۳ ماه)",
+        line=dict(color="orange")
+    ))
+    fig.add_trace(go.Scatter(
+        y=np.percentile(paths, 85, axis=1),
+        name="سناریوی خوش‌بینانه",
+        line=dict(dash="dot", color="green")
+    ))
+    fig.add_trace(go.Scatter(
+        y=np.percentile(paths, 15, axis=1),
+        name="سناریوی بدبینانه",
+        line=dict(dash="dot", color="red")
+    ))
 
-        # 4. ریسک‌پاریتی
-        elif style == "ریسک‌پاریتی (Risk Parity)":
-            def rp_obj(w):
-                port_var = np.dot(w.T, np.dot(cov_mat, w))
-                if port_var < 1e-10: return 9999
-                contrib = w * np.dot(cov_mat, w) / np.sqrt(port_var)
-                return np.sum((contrib - np.mean(contrib))**2)
-            res = minimize(rp_obj, x0, method="SLSQP", bounds=bounds, constraints=constraints)
-            return res.x if res.success else x0
-
-        # 5. مونت‌کارلو مقاوم
-        elif style == "مونت‌کارلو مقاوم (Resampled Frontier)":
-            best_sharpe = -9999
-            best_w = x0
-            for _ in range(20000):
-                w = np.random.random(n)
-                w = np.clip(w, [b[0] for b in bounds], [b[1] for b in bounds])
-                w /= w.sum()
-                ret = np.dot(mean_ret, w)
-                risk = np.sqrt(np.dot(w.T, np.dot(cov_mat, w)))
-                sharpe = (ret - rf) / risk if risk > 0 else -9999
-                if sharpe > best_sharpe:
-                    best_sharpe = sharpe
-                    best_w = w
-            return best_w
-
-        # 6. HRP (سلسله‌مراتبی)
-        elif style == "HRP (سلسله‌مراتبی)":
-            corr = returns.corr()
-            dist = np.sqrt((1 - corr) / 2)
-            link = linkage(squareform(dist), 'single')
-            order = np.array([link[-i, 0] for i in range(1, n)][::-1] + [link[-i, 1] for i in range(1, n)][::-1])
-            w = np.zeros(n)
-            for i in order.astype(int):
-                w[i] = 1 / np.var(returns.iloc[:, i])
-            w /= w.sum()
-            return w
-
-        # 7. Maximum Diversification
-        elif style == "Maximum Diversification":
-            vol = np.sqrt(np.diag(cov_mat))
-            obj = lambda w: -np.dot(w, vol) / np.sqrt(np.dot(w.T, np.dot(cov_mat, w)))
-            res = minimize(obj, x0, method="SLSQP", bounds=bounds, constraints=constraints)
-            return res.x if res.success else x0
-
-        # 8. Inverse Volatility
-        elif style == "Inverse Volatility":
-            vol = np.sqrt(np.diag(cov_mat))
-            w = 1 / vol
-            w /= w.sum()
-            return w
-
-        # 9. Barbell طالب
-        elif style == "Barbell طالب (۹۰/۱۰)":
-            w = np.zeros(n)
-            safe = [i for i, name in enumerate(returns.columns) if any(x in name.upper() for x in ["GC=", "GOLD", "USD", "USDIRR", "USDT"])]
-            risky = [i for i in range(n) if i not in safe]
-            if safe: w[safe] = 0.9 / len(safe)
-            if risky: w[risky] = 0.1 / len(risky)
-            return w
-
-        # 10. Antifragile طالب
-        elif style == "Antifragile طالب":
-            w = np.zeros(n)
-            gold = [i for i, name in enumerate(returns.columns) if "GC=" in name.upper() or "GOLD" in name.upper()]
-            btc = [i for i, name in enumerate(returns.columns) if "BTC" in name.upper()]
-            if gold: w[gold] = 0.4
-            if btc: w[btc] = 0.4
-            rest = [i for i in range(n) if i not in gold + btc]
-            if rest: w[rest] = 0.2 / len(rest)
-            return w
-
-        # 11. Kelly Criterion
-        elif style == "Kelly Criterion (حداکثر رشد)":
-            w = mean_ret / np.diag(cov_mat)
-            w = np.clip(w, 0, None)
-            w /= w.sum() if w.sum() > 0 else 1
-            return w
-
-        # 12. Most Diversified Portfolio
-        elif style == "Most Diversified Portfolio":
-            vol = np.sqrt(np.diag(cov_mat))
-            obj = lambda w: -np.dot(w, vol) / np.sqrt(np.dot(w.T, np.dot(cov_mat, w)))
-            res = minimize(obj, x0, method="SLSQP", bounds=bounds, constraints=constraints)
-            return res.x if res.success else x0
-
-        # 13. Equal Risk Bounding
-        elif style == "Equal Risk Bounding":
-            target = 1.0 / n
-            def erb_obj(w):
-                contrib = w * np.dot(cov_mat, w) / np.sqrt(np.dot(w.T, np.dot(cov_mat, w)))
-                return np.sum((contrib - target)**2)
-            res = minimize(erb_obj, x0, method="SLSQP", bounds=bounds, constraints=constraints)
-            return res.x if res.success else x0
-
-        # 14. بلک-لیترمن
-        elif style == "بلک-لیترمن (ترکیب نظر شخصی)":
-            w = mean_ret / mean_ret.sum()
-            w = np.nan_to_num(w)
-            w = np.clip(w, [b[0] for b in bounds], [b[1] for b in bounds])
-            w /= w.sum()
-            return w
-
-    except Exception as e:
-        st.warning(f"خطا در {style}: {e} — وزن برابر استفاده شد")
-        return x0
+    fig.update_layout(title=f"پیش‌بینی قیمت {asset}", height=500)
+    return fig
 
 # ==================== محاسبه پرتفوی ====================
 @st.fragment
 def calculate_portfolio():
-    if "prices" not in st.session_state or st.session_state.prices is None:
+    if "prices" not in st.session_state:
         st.info("لطفاً داده‌ها را دانلود کنید.")
         return
 
-    prices = st.session_state.prices
+THE GHOST, [2/11/2026 01:37]
+prices = st.session_state.prices
     returns = prices.pct_change().dropna()
-    asset_names = list(prices.columns)
     mean_ret = returns.mean() * 252
     cov_mat = returns.cov() * 252
     rf = st.session_state.rf_rate / 100
+    n = len(mean_ret)
 
-    # محدودیت‌های هجینگ
-    bounds = []
-    hedge = hedge_strategies[st.session_state.hedge_strategy]
-    for name in asset_names:
-        low = 0.0
-        up = 1.0
-        n = name.upper()
-        if any(x in n for x in ["GC=", "GOLD", "SI="]): low = max(low, hedge["gold_min"])
-        if any(x in n for x in ["USD", "USDIRR", "USDT"]): low = max(low, hedge["usd_min"])
-        if any(x in n for x in ["BTC", "بیت"]): up = min(up, hedge["btc_max"])
-        if low > up: low, up = 0.0, 1.0
-        bounds.append((float(low), float(up)))
+    weights = np.ones(n) / n
 
-    # وزن‌ها
-    weights = get_portfolio_weights(st.session_state.selected_style, returns, mean_ret, cov_mat, rf, bounds)
-    
-    # اعمال آپشن
-    opt = option_strategies[st.session_state.option_strategy]
-    option_cost = opt["cost_pct"]
-    adjusted_return = np.dot(mean_ret, weights) * 100 - option_cost
-    adjusted_risk = np.sqrt(np.dot(weights.T, np.dot(cov_mat, weights))) * 100
-    if "Put" in st.session_state.option_strategy:
-        adjusted_risk *= 0.7
-    elif "Call" in st.session_state.option_strategy:
-        adjusted_risk *= 1.1
+    st.success("پرتفوی محاسبه شد")
+    df_w = pd.DataFrame({"دارایی": prices.columns, "وزن (%)": weights * 100})
+    st.dataframe(df_w, use_container_width=True)
+    st.plotly_chart(px.pie(df_w, values="وزن (%)", names="دارایی"), use_container_width=True)
 
-    sharpe = (adjusted_return/100 - rf) / (adjusted_risk/100) if adjusted_risk > 0 else 0
-    recovery = format_recovery(calculate_recovery_time(returns.dot(weights)))
+    # تخصیص سرمایه
+    st.markdown("### 💰 تخصیص سرمایه")
+    capital = st.number_input("کل سرمایه (دلار)", 100, 1_000_000, 1200)
+    alloc = allocate_capital(weights, prices.columns, capital)
+    st.dataframe(alloc, use_container_width=True)
 
-    # نمایش نتایج
-    is_option_active = st.session_state.option_strategy != "بدون آپشن"
-    st.success(f"سبک: **{st.session_state.selected_style}** | آپشن: **{opt['name']}**")
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("بازده" + (" (با آپشن)" if is_option_active else ""), f"{adjusted_return:.2f}%")
-    c2.metric("ریسک" + (" (با آپشن)" if is_option_active else ""), f"{adjusted_risk:.2f}%")
-    c3.metric("شارپ" + (" (با آپشن)" if is_option_active else ""), f"{sharpe:.3f}")
-    c4.metric("زمان ریکاوری", recovery)
+    # پیش‌بینی
+    st.markdown("### 🔮 پیش‌بینی قیمت دارایی‌ها")
+    asset = st.selectbox("انتخاب دارایی", prices.columns)
+    st.plotly_chart(plot_forecast(prices, asset), use_container_width=True)
 
-    df_w = pd.DataFrame({"دارایی": asset_names, "وزن (%)": np.round(weights*100, 2)}).sort_values("وزن (%)", ascending=False)
-    st.markdown("### تخصیص دارایی‌ها")
-    col1, col2 = st.columns([2,1])
-    with col1: st.dataframe(df_w, use_container_width=True)
-    with col2: st.plotly_chart(px.pie(df_w, values="وزن (%)", names="دارایی"), use_container_width=True)
-
-    # چه می‌شد اگر؟
-    st.markdown("### چه می‌شد اگر؟ (بک‌تست واقعی)")
-    col1, col2, col3 = st.columns(3)
-    initial = col1.number_input("سرمایه اولیه (میلیون تومان)", 10, 10000, 100)
-    years = col2.selectbox("چند سال پیش شروع کرده بودید؟", [1, 3, 5, 10], index=2)
-    monthly = col3.number_input("سرمایه‌گذاری ماهانه (میلیون)", 0, 100, 10)
-
-    full_returns = prices.pct_change().dropna()
-    port_daily = full_returns.dot(weights)
-    backtest_days = years * 252
-    if len(port_daily) > backtest_days:
-        port_daily = port_daily.tail(backtest_days)
-
-    value = initial
-    values = [initial]
-    for i in range(len(port_daily)):
-        value *= (1 + port_daily.iloc[i])
-        if i % 21 == 0 and i > 0:
-            value += monthly
-        values.append(value)
-
-    total_invested = initial + (monthly * years * 12)
-    profit = value - total_invested
-    profit_pct = (profit / total_invested) * 100 if total_invested > 0 else 0
-
-    st.metric("اگر از اون موقع شروع کرده بودید، الان داشتید:", f"{value:,.0f} میلیون تومان")
-    st.metric("سود خالص", f"{profit:,.0f} میلیون تومان", delta=f"{profit_pct:.1f}%")
-
-    fig_back = go.Figure()
-    fig_back.add_trace(go.Scatter(y=values, name="رشد سرمایه شما"))
-    fig_back.add_hline(y=initial, line_dash="dash", annotation_text="سرمایه اولیه")
-    fig_back.update_layout(title=f"رشد سرمایه از {years} سال پیش تا امروز", height=500)
-    st.plotly_chart(fig_back, use_container_width=True)
-
-# ==================== صفحه اصلی + سایدبار ====================
+# ==================== UI ====================
 st.set_page_config(page_title="Portfolio360 Ultimate Pro", layout="wide")
-st.markdown("<h1 style='text-align: center; color: #00d2d3;'>Portfolio360 Ultimate Pro</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align:center;color:#00d2d3'>Portfolio360 Ultimate Pro</h1>", unsafe_allow_html=True)
 
 with st.sidebar:
     st.header("دانلود داده")
-    tickers = st.text_input("نمادها", "BTC-USD, GC=F, USDIRR=X, ^GSPC")
-    if st.button("دانلود", type="primary"):
-        with st.spinner("در حال دانلود..."):
-            data = download_data(tickers)
-            if data is not None:
-                st.session_state.prices = data
-                st.rerun()
-
-    st.header("هجینگ")
-    if "hedge_strategy" not in st.session_state:
-        st.session_state.hedge_strategy = "طلا + تتر (ترکیبی)"
-    st.session_state.hedge_strategy = st.selectbox("استراتژی هجینگ", list(hedge_strategies.keys()), index=3)
-
-    st.header("آپشن")
-    if "option_strategy" not in st.session_state:
-        st.session_state.option_strategy = "بدون آپشن"
-    st.session_state.option_strategy = st.selectbox("استراتژی آپشن", list(option_strategies.keys()))
-
-    st.header("۱۴ سبک حرفه‌ای پرتفوی")
-    styles = [
-        "مارکوویتز + هجینگ (بهینه‌ترین شارپ)",
-        "وزن برابر (ساده و مقاوم)",
-        "حداقل ریسک (محافظه‌کارانه)",
-        "ریسک‌پاریتی (Risk Parity)",
-        "مونت‌کارلو مقاوم (Resampled Frontier)",
-        "HRP (سلسله‌مراتبی)",
-        "Maximum Diversification",
-        "Inverse Volatility",
-        "Barbell طالب (۹۰/۱۰)",
-        "Antifragile طالب",
-        "Kelly Criterion (حداکثر رشد)",
-        "Most Diversified Portfolio",
-        "Equal Risk Bounding",
-        "بلک-لیترمن (ترکیب نظر شخصی)"
-    ]
-    if "selected_style" not in st.session_state:
-        st.session_state.selected_style = styles[0]
-    st.session_state.selected_style = st.selectbox("انتخاب سبک", styles, index=styles.index(st.session_state.selected_style))
+    tickers = st.text_input("نمادها", "BTC-USD, GC=F, ETH-USD")
+    if st.button("دانلود"):
+        st.session_state.prices = download_data(tickers)
+        st.rerun()
 
     st.header("تنظیمات")
-    if "rf_rate" not in st.session_state: st.session_state.rf_rate = 18.0
-    st.session_state.rf_rate = st.number_input("نرخ بدون ریسک (%)", 0.0, 50.0, st.session_state.rf_rate, 0.5)
+    st.session_state.rf_rate = st.number_input("نرخ بدون ریسک (%)", 0.0, 50.0, 18.0)
 
-# اجرا
 calculate_portfolio()
-
-st.balloons()
-st.caption("Portfolio360 Ultimate Pro — تمام ۱۴ سبک فعال + آپشن + چه می‌شد اگر + هجینگ | ۱۴۰۴ | با عشق برای ایران")
+st.caption("Portfolio360 Ultimate Pro | Prediction Enabled")
