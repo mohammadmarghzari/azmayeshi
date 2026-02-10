@@ -123,7 +123,6 @@ def calculate_portfolio():
     if "prices" not in st.session_state:
         st.info("لطفاً داده‌ها را دانلود کنید.")
         return
-
 prices = st.session_state.prices
     returns = prices.pct_change().dropna()
     mean_ret = returns.mean() * 252
