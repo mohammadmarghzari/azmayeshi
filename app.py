@@ -124,7 +124,6 @@ def calculate_portfolio():
         st.info("لطفاً داده‌ها را دانلود کنید.")
         return
 
-THE GHOST, [2/11/2026 01:37]
 prices = st.session_state.prices
     returns = prices.pct_change().dropna()
     mean_ret = returns.mean() * 252
