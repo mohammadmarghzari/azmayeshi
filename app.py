@@ -808,6 +808,7 @@ def generate_dca_dates(start_datetime, periods, freq_days):
 
 def map_dates_to_trading_days(dates, price_index):
     mapped = []
+    price_index = pd.to_datetime(price_index)  # Ensure DatetimeIndex
     for d in dates:
         ts = pd.Timestamp(d)
         if ts <= price_index[0]:
@@ -825,7 +826,11 @@ def simulate_time_dca(price_series, total_amount, periods, freq_days=1, start_da
     if start_date is None:
         start_dt = price_series.index[0]
     else:
-        start_dt = datetime.combine(start_date, datetime.min.time()) if hasattr(start_date, 'year') else pd.Timestamp(start_date)
+        # Convert to Timestamp if it's date object
+        if hasattr(start_date, 'year'):
+            start_dt = pd.Timestamp(datetime.combine(start_date, datetime.min.time()))
+        else:
+            start_dt = pd.Timestamp(start_date)
     
     desired_dates = generate_dca_dates(start_dt, periods, freq_days)
     mapped_dates = map_dates_to_trading_days(desired_dates, price_series.index)
