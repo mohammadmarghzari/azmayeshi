@@ -1,5 +1,5 @@
 """
-Portfolio360 Ultimate Pro — Professional Edition
+Mr.option11 — Professional Edition
 - Enhanced UI with modern design
 - Comprehensive help tooltips for each feature
 - Better organized sections with expandable explanations
