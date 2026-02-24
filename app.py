@@ -1272,65 +1272,7 @@ else:
     
     # =============================================================================
     # DCA SECTION
-    # =============================================================================
-    st.markdown('<div class="section-header">⏳ DCA زمانی</div>', unsafe_allow_html=True)
-    show_help("dca_time")
-    
-    col_dca1, col_dca2, col_dca3 = st.columns([2, 1, 1])
-    with col_dca1:
-        dca_asset = st.selectbox("دارایی", asset_names, index=0, key="dca_asset")
-    with col_dca2:
-        dca_total = st.number_input("سرمایه ($)", 1.0, value=1000.0, step=100.0)
-    with col_dca3:
-        dca_periods = st.number_input("دوره‌ها", 1, value=30, step=1)
-    
-    col_dca4, col_dca5, col_dca6 = st.columns([1, 1, 1])
-    with col_dca4:
-        dca_freq_days = st.number_input("فاصله (روز)", 1, value=1, step=1)
-    with col_dca5:
-        dca_start_date = st.date_input("تاریخ شروع",
-            value=(prices.index[0] + pd.Timedelta(days=1)).date())
-    with col_dca6:
-        use_levels = st.checkbox("سطوح قیمتی", value=False)
-    
-    levels_input = None
-    if use_levels:
-        levels_txt = st.text_input("سطوح (با کاما)", placeholder="2500,2200,1800")
-        try:
-            levels_input = [float(x.strip()) for x in levels_txt.split(",") if x.strip()]
-        except:
-            levels_input = None
-    
-    if st.button("▶️ اجرای DCA", use_container_width=True):
-        with st.spinner("در حال شبیه‌سازی..."):
-            series = prices[dca_asset]
-            df_purchases, summary = simulate_time_dca(series, dca_total, int(dca_periods),
-                int(dca_freq_days), start_date=dca_start_date, levels=levels_input)
-            
-            st.markdown("#### 📋 جدول معاملات")
-            st.dataframe(df_purchases[["date", "price", "amount_usd", "units", "level_assigned"]]
-                        .assign(date=lambda d: d["date"].dt.strftime("%Y-%m-%d")),
-                        use_container_width=True, hide_index=True)
-            
-            st.markdown("#### 📊 خلاصه")
-            col_res1, col_res2, col_res3 = st.columns(3)
-            with col_res1:
-                st.metric("سرمایه‌گذاری", f"${summary['total_invested']:.2f}")
-                st.metric("دوره‌ها", f"{int(dca_periods)}")
-            with col_res2:
-                st.metric("میانگین قیمت", f"${summary['avg_price_per_unit']:.4f}")
-                st.metric("قیمت نهایی", f"${summary['final_price']:.2f}")
-            with col_res3:
-                st.metric("ارزش کنونی", f"${summary['final_value']:.2f}")
-                st.metric("سود/زیان", f"${summary['profit']:.2f}", f"{summary['profit_pct']:.2f}%")
-            
-            fig_p = plot_price_with_purchases(series, df_purchases, title=f"DCA روی {dca_asset}")
-            st.plotly_chart(fig_p, use_container_width=True)
-            
-            csv = df_purchases.to_csv(index=False, encoding="utf-8-sig")
-            st.download_button("📥 دانلود CSV", csv,
-                file_name=f"dca_{dca_asset}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                use_container_width=True)
+    # ===================
 
 # Footer
 st.markdown("---")
