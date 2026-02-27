@@ -776,7 +776,7 @@ with st.sidebar:
             if data is not None:
                 st.session_state.prices = data
                 st.success(f"✅ {len(data.columns)} دارایی با موفقیت بارگذاری شد!")
-                st.experimental_rerun()
+                st.rerun()
     
     # Show help for data download
     show_help("data_download")
