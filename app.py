@@ -420,14 +420,14 @@ bs_price = call_price(
     risk_free_rate / 100,
     sigma
 )
-    greek_values = greeks(
+greek_values = greeks(
     cc_stock_price,
     cc_strike_price,
     T,
     risk_free_rate / 100,
     sigma
 )
-    st.subheader(
+st.subheader(
         "🏆 Best Portfolio"
     )
 
