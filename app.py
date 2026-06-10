@@ -7,6 +7,7 @@ import plotly.graph_objects as go
 from datetime import datetime, timedelta
 from options.black_scholes import call_price
 from options.greeks import greeks
+from scipy.stats import norm
 
 # ==========================================
 # PAGE CONFIG
@@ -408,6 +409,24 @@ else:
     # METRICS
     # ======================================
 
+    T = expiration_days / 365
+
+sigma = iv / 100
+
+bs_price = call_price(
+    cc_stock_price,
+    cc_strike_price,
+    T,
+    risk_free_rate / 100,
+    sigma
+)
+    greek_values = greeks(
+    cc_stock_price,
+    cc_strike_price,
+    T,
+    risk_free_rate / 100,
+    sigma
+)
     st.subheader(
         "🏆 Best Portfolio"
     )
@@ -577,6 +596,25 @@ st.header(
 # ==========================================
 
 st.sidebar.markdown("---")
+
+st.sidebar.subheader(
+    "Option Parameters"
+)
+
+iv = st.sidebar.slider(
+    "Implied Volatility %",
+    1,
+    300,
+    60
+)
+
+expiration_days = st.sidebar.slider(
+    "Days To Expiration",
+    1,
+    365,
+    30
+)
+st.sidebar.markdown("---")
 st.sidebar.header("📞 Covered Call Inputs")
 
 cc_stock_price = st.sidebar.number_input(
@@ -653,7 +691,46 @@ annualized_return = (
 # ==========================================
 # COVERED CALL METRICS
 # ==========================================
+st.subheader(
+    "⚡ Option Analytics"
+)
 
+g1, g2, g3, g4, g5 = st.columns(5)
+
+with g1:
+
+    st.metric(
+        "BS Price",
+        f"${bs_price:.2f}"
+    )
+
+with g2:
+
+    st.metric(
+        "Delta",
+        f"{greek_values['Delta']:.3f}"
+    )
+
+with g3:
+
+    st.metric(
+        "Gamma",
+        f"{greek_values['Gamma']:.4f}"
+    )
+
+with g4:
+
+    st.metric(
+        "Theta",
+        f"{greek_values['Theta']:.2f}"
+    )
+
+with g5:
+
+    st.metric(
+        "Vega",
+        f"{greek_values['Vega']:.2f}"
+    )
 st.subheader(
     "📊 Covered Call Metrics"
 )
