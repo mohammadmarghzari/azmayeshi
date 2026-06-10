@@ -1,111 +1,290 @@
-
 import streamlit as st
 import pandas as pd
 import numpy as np
+import yfinance as yf
 import plotly.express as px
+import plotly.graph_objects as go
+from datetime import datetime, timedelta
 
-st.set_page_config(page_title="Portfolio & Options Analyzer", layout="wide")
+# ==========================================
+# PAGE CONFIG
+# ==========================================
 
-st.title("📈 Portfolio & Options Scenario Analyzer")
+st.set_page_config(
+    page_title="Portfolio Analytics Pro",
+    page_icon="📈",
+    layout="wide"
+)
 
-st.sidebar.header("Portfolio Inputs")
+# ==========================================
+# CUSTOM CSS (Carbon Blue Theme)
+# ==========================================
 
-# Spot Assets
-st.sidebar.subheader("Spot Assets")
-n_spot = st.sidebar.number_input("Number of Spot Assets", 0, 50, 1)
+st.markdown("""
+<style>
 
-spots = []
-for i in range(n_spot):
-    with st.sidebar.expander(f"Spot #{i+1}"):
-        symbol = st.text_input(f"Symbol {i}", value="ETH", key=f"sym{i}")
-        qty = st.number_input(f"Quantity {i}", value=0.0, key=f"qty{i}")
-        price = st.number_input(f"Current Price {i}", value=2000.0, key=f"pr{i}")
-        spots.append({"symbol": symbol, "qty": qty, "price": price})
+.main {
+    background-color: #0F172A;
+    color: white;
+}
 
-# Debt
-debt = st.sidebar.number_input("Debt (USDC/USD)", value=0.0)
+section[data-testid="stSidebar"] {
+    background-color: #111827;
+}
 
-# Options
-st.sidebar.subheader("Options")
-n_opt = st.sidebar.number_input("Number of Options", 0, 100, 1)
+.block-container {
+    padding-top: 1rem;
+}
 
-options = []
-for i in range(n_opt):
-    with st.sidebar.expander(f"Option #{i+1}"):
-        underlying = st.text_input(f"Underlying {i}", value="ETH", key=f"u{i}")
-        opt_type = st.selectbox(f"Type {i}", ["Call", "Put"], key=f"t{i}")
-        strike = st.number_input(f"Strike {i}", value=2200.0, key=f"k{i}")
-        premium = st.number_input(f"Premium Cost {i}", value=100.0, key=f"p{i}")
-        qty = st.number_input(f"Contracts/Qty {i}", value=1.0, key=f"q{i}")
-        expiry = st.text_input(f"Expiry {i}", value="2025-12-31", key=f"e{i}")
-        options.append({
-            "underlying": underlying,
-            "type": opt_type,
-            "strike": strike,
-            "premium": premium,
-            "qty": qty,
-            "expiry": expiry
-        })
+.metric-card {
+    background: rgba(255,255,255,0.05);
+    padding: 20px;
+    border-radius: 12px;
+    backdrop-filter: blur(10px);
+}
 
-st.sidebar.subheader("Scenario Range")
-price_min = st.sidebar.number_input("Min Price", value=1000.0)
-price_max = st.sidebar.number_input("Max Price", value=4000.0)
-steps = st.sidebar.slider("Scenarios", 5, 50, 15)
+h1,h2,h3 {
+    color: white !important;
+}
 
-# Current values
-spot_value = sum(x["qty"] * x["price"] for x in spots)
-option_cost = sum(x["premium"] for x in options)
-net_value = spot_value - debt - option_cost
+</style>
+""", unsafe_allow_html=True)
 
-c1, c2, c3, c4 = st.columns(4)
-c1.metric("Spot Value", f"${spot_value:,.2f}")
-c2.metric("Debt", f"${debt:,.2f}")
-c3.metric("Option Cost", f"${option_cost:,.2f}")
-c4.metric("Net Value", f"${net_value:,.2f}")
+# ==========================================
+# TITLE
+# ==========================================
 
-prices = np.linspace(price_min, price_max, steps)
+st.title("📊 Portfolio Analytics Pro")
 
-rows = []
+st.markdown("""
+Professional Portfolio Optimization,
+Sharpe Analysis,
+and Covered Call Platform
+""")
 
-for price in prices:
-    scenario_spot = sum(x["qty"] * price for x in spots if x["symbol"].upper()=="ETH") \
-                  + sum(x["qty"] * x["price"] for x in spots if x["symbol"].upper()!="ETH")
+# ==========================================
+# DEFAULT ASSETS
+# ==========================================
 
-    option_value = 0
-    for op in options:
-        if op["type"] == "Call":
-            option_value += max(price - op["strike"], 0) * op["qty"]
-        else:
-            option_value += max(op["strike"] - price, 0) * op["qty"]
+DEFAULT_SYMBOLS = {
+    "Bitcoin": "BTC-USD",
+    "Ethereum": "ETH-USD",
+    "Gold": "GC=F",
+    "Silver": "SI=F",
+    "Copper": "HG=F"
+}
 
-    total = scenario_spot + option_value
-    pnl = total - debt - option_cost
+# ==========================================
+# SIDEBAR
+# ==========================================
 
-    rows.append({
-        "Underlying Price": round(price,2),
-        "Spot Value": round(scenario_spot,2),
-        "Option Value": round(option_value,2),
-        "Portfolio Value": round(total,2),
-        "Net P/L": round(pnl,2)
+st.sidebar.header("⚙️ Settings")
+
+selected_assets = st.sidebar.multiselect(
+    "Select Assets",
+    options=list(DEFAULT_SYMBOLS.keys()),
+    default=["Bitcoin", "Ethereum"]
+)
+
+custom_symbol = st.sidebar.text_input(
+    "Custom Yahoo Symbol",
+    ""
+)
+
+period = st.sidebar.selectbox(
+    "Analysis Period",
+    [
+        "1mo",
+        "2mo",
+        "3mo",
+        "6mo",
+        "1y"
+    ]
+)
+
+risk_free_rate = st.sidebar.number_input(
+    "Risk Free Rate (%)",
+    min_value=0.0,
+    max_value=20.0,
+    value=4.5
+)
+
+num_portfolios = st.sidebar.slider(
+    "Number of Portfolios",
+    100,
+    5000,
+    500,
+    100
+)
+
+# ==========================================
+# BUILD SYMBOL LIST
+# ==========================================
+
+symbols = []
+
+for asset in selected_assets:
+    symbols.append(DEFAULT_SYMBOLS[asset])
+
+if custom_symbol.strip():
+    symbols.append(custom_symbol.strip().upper())
+
+# ==========================================
+# DATA DOWNLOAD
+# ==========================================
+
+@st.cache_data
+def download_data(symbols, period):
+
+    data = yf.download(
+        symbols,
+        period=period,
+        auto_adjust=True,
+        progress=False
+    )
+
+    return data
+
+# ==========================================
+# LOAD DATA
+# ==========================================
+
+if len(symbols) == 0:
+    st.warning("Please select at least one asset.")
+    st.stop()
+
+try:
+
+    raw_data = download_data(symbols, period)
+
+    prices = raw_data["Close"]
+
+    if isinstance(prices, pd.Series):
+        prices = prices.to_frame()
+
+except Exception as e:
+
+    st.error(f"Error downloading data: {e}")
+    st.stop()
+
+# ==========================================
+# PRICE CHART
+# ==========================================
+
+st.subheader("📈 Price History")
+
+fig_price = px.line(
+    prices,
+    title="Historical Prices"
+)
+
+fig_price.update_layout(
+    template="plotly_dark",
+    height=600
+)
+
+st.plotly_chart(
+    fig_price,
+    use_container_width=True
+)
+
+# ==========================================
+# RETURNS
+# ==========================================
+
+returns = prices.pct_change().dropna()
+
+# ==========================================
+# SHARPE RATIO
+# ==========================================
+
+def calculate_sharpe(series, rf):
+
+    annual_return = series.mean() * 252
+
+    annual_volatility = series.std() * np.sqrt(252)
+
+    rf = rf / 100
+
+    sharpe = (
+        annual_return - rf
+    ) / annual_volatility
+
+    return (
+        annual_return,
+        annual_volatility,
+        sharpe
+    )
+
+# ==========================================
+# ANALYTICS TABLE
+# ==========================================
+
+analytics = []
+
+for col in returns.columns:
+
+    annual_return, annual_vol, sharpe = calculate_sharpe(
+        returns[col],
+        risk_free_rate
+    )
+
+    analytics.append({
+        "Asset": col,
+        "Annual Return %": round(
+            annual_return * 100,
+            2
+        ),
+        "Volatility %": round(
+            annual_vol * 100,
+            2
+        ),
+        "Sharpe Ratio": round(
+            sharpe,
+            3
+        )
     })
 
-df = pd.DataFrame(rows)
+analytics_df = pd.DataFrame(
+    analytics
+)
 
-st.subheader("Scenario Table")
-st.dataframe(df, use_container_width=True)
+# ==========================================
+# METRICS
+# ==========================================
 
-st.subheader("Profit / Loss Curve")
-fig = px.line(df, x="Underlying Price", y="Net P/L", markers=True)
-st.plotly_chart(fig, use_container_width=True)
+st.subheader("📊 Sharpe Analysis")
 
-positive = df[df["Net P/L"] >= 0]
-if len(positive):
-    be = positive.iloc[0]["Underlying Price"]
-    st.success(f"Approx Break-even Price: {be:,.2f}")
-else:
-    st.warning("No break-even found in selected range")
+st.dataframe(
+    analytics_df,
+    use_container_width=True
+)
 
-st.subheader("Portfolio Summary")
-st.write(f"Spot Assets: {len(spots)}")
-st.write(f"Options: {len(options)}")
-st.write(f"Debt: ${debt:,.2f}")
+# ==========================================
+# SHARPE BAR CHART
+# ==========================================
+
+fig_sharpe = px.bar(
+    analytics_df,
+    x="Asset",
+    y="Sharpe Ratio",
+    title="Sharpe Ratio Comparison"
+)
+
+fig_sharpe.update_layout(
+    template="plotly_dark",
+    height=500
+)
+
+st.plotly_chart(
+    fig_sharpe,
+    use_container_width=True
+)
+
+# ==========================================
+# SECTION DIVIDER
+# ==========================================
+
+st.markdown("---")
+
+st.header("🚀 Portfolio Optimization")
