@@ -5,6 +5,8 @@ import yfinance as yf
 import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
+from options.black_scholes import call_price
+from options.greeks import greeks
 
 # ==========================================
 # PAGE CONFIG
