@@ -458,7 +458,7 @@ with c3:
     # ALLOCATION TABLE
     # ======================================
 
-    st.subheader(
+st.subheader(
         "📋 Optimal Allocation"
     )
 
@@ -477,7 +477,7 @@ with c3:
         ascending=False
     )
 
-    st.dataframe(
+st.dataframe(
         allocation_df,
         use_container_width=True
     )
