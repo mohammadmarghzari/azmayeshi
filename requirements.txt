@@ -9,3 +9,5 @@ xlsxwriter>=3.2.0
 reportlab>=4.2.0
 setuptools
 wheel
+py_vollib>=1.0.1
+py_vollib_vectorized>=0.1.1
