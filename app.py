@@ -570,3 +570,301 @@ st.markdown("---")
 st.header(
     "📞 Covered Call Calculator"
 )
+# ==========================================
+# COVERED CALL SIDEBAR INPUTS
+# ==========================================
+
+st.sidebar.markdown("---")
+st.sidebar.header("📞 Covered Call Inputs")
+
+cc_stock_price = st.sidebar.number_input(
+    "Current Stock Price",
+    min_value=0.01,
+    value=100.0,
+    step=1.0
+)
+
+cc_strike_price = st.sidebar.number_input(
+    "Strike Price",
+    min_value=0.01,
+    value=110.0,
+    step=1.0
+)
+
+cc_premium = st.sidebar.number_input(
+    "Premium Received",
+    min_value=0.0,
+    value=3.0,
+    step=0.1
+)
+
+cc_shares = st.sidebar.number_input(
+    "Shares Owned",
+    min_value=100,
+    value=100,
+    step=100
+)
+
+cc_days = st.sidebar.number_input(
+    "Days To Expiration",
+    min_value=1,
+    value=30
+)
+
+commission = st.sidebar.number_input(
+    "Commission",
+    min_value=0.0,
+    value=0.0
+)
+
+# ==========================================
+# COVERED CALL CALCULATIONS
+# ==========================================
+
+premium_income = cc_premium * cc_shares
+
+max_profit = (
+    (cc_strike_price - cc_stock_price)
+    * cc_shares
+) + premium_income - commission
+
+breakeven = (
+    cc_stock_price
+    - cc_premium
+)
+
+capital_required = (
+    cc_stock_price
+    * cc_shares
+)
+
+roi = (
+    max_profit
+    / capital_required
+) * 100
+
+annualized_return = (
+    roi
+    * (365 / cc_days)
+)
+
+# ==========================================
+# COVERED CALL METRICS
+# ==========================================
+
+st.subheader(
+    "📊 Covered Call Metrics"
+)
+
+col1, col2, col3, col4 = st.columns(4)
+
+with col1:
+    st.metric(
+        "Max Profit",
+        f"${max_profit:,.2f}"
+    )
+
+with col2:
+    st.metric(
+        "Breakeven",
+        f"${breakeven:,.2f}"
+    )
+
+with col3:
+    st.metric(
+        "ROI",
+        f"{roi:.2f}%"
+    )
+
+with col4:
+    st.metric(
+        "Annualized Return",
+        f"{annualized_return:.2f}%"
+    )
+
+# ==========================================
+# PAYOFF FUNCTION
+# ==========================================
+
+def covered_call_payoff(
+    stock_price_expiration,
+    stock_price_today,
+    strike,
+    premium,
+    shares
+):
+
+    stock_pnl = (
+        stock_price_expiration
+        - stock_price_today
+    ) * shares
+
+    call_pnl = np.where(
+        stock_price_expiration > strike,
+        -(stock_price_expiration - strike)
+        * shares,
+        0
+    )
+
+    premium_income = (
+        premium
+        * shares
+    )
+
+    return (
+        stock_pnl
+        + call_pnl
+        + premium_income
+    )
+
+# ==========================================
+# PAYOFF CURVE
+# ==========================================
+
+price_range = np.linspace(
+    cc_stock_price * 0.5,
+    cc_stock_price * 1.8,
+    300
+)
+
+payoff = covered_call_payoff(
+    price_range,
+    cc_stock_price,
+    cc_strike_price,
+    cc_premium,
+    cc_shares
+)
+
+# ==========================================
+# PAYOFF CHART
+# ==========================================
+
+st.subheader(
+    "📈 Covered Call Payoff Diagram"
+)
+
+payoff_fig = go.Figure()
+
+payoff_fig.add_trace(
+    go.Scatter(
+        x=price_range,
+        y=payoff,
+        mode="lines",
+        name="Covered Call"
+    )
+)
+
+payoff_fig.add_hline(
+    y=0,
+    line_dash="dash"
+)
+
+payoff_fig.add_vline(
+    x=cc_strike_price,
+    line_dash="dash"
+)
+
+payoff_fig.update_layout(
+    template="plotly_dark",
+    height=650,
+    title="Profit / Loss At Expiration",
+    xaxis_title="Underlying Price At Expiration",
+    yaxis_title="Profit / Loss ($)"
+)
+
+st.plotly_chart(
+    payoff_fig,
+    use_container_width=True
+)
+
+# ==========================================
+# SCENARIO TABLE
+# ==========================================
+
+st.subheader(
+    "📋 Scenario Analysis"
+)
+
+scenario_prices = [
+    cc_stock_price * 0.7,
+    cc_stock_price * 0.8,
+    cc_stock_price * 0.9,
+    cc_stock_price,
+    cc_stock_price * 1.1,
+    cc_stock_price * 1.2,
+    cc_stock_price * 1.3,
+]
+
+scenario_profit = []
+
+for price in scenario_prices:
+
+    pnl = covered_call_payoff(
+        price,
+        cc_stock_price,
+        cc_strike_price,
+        cc_premium,
+        cc_shares
+    )
+
+    scenario_profit.append(
+        round(float(pnl), 2)
+    )
+
+scenario_df = pd.DataFrame({
+    "Underlying Price":
+        np.round(
+            scenario_prices,
+            2
+        ),
+    "Profit/Loss":
+        scenario_profit
+})
+
+st.dataframe(
+    scenario_df,
+    use_container_width=True
+)
+
+# ==========================================
+# LIVE PRICE SIMULATOR
+# ==========================================
+
+st.subheader(
+    "🎯 Expiration Simulator"
+)
+
+sim_price = st.slider(
+    "Move Underlying Price",
+    min_value=float(
+        cc_stock_price * 0.5
+    ),
+    max_value=float(
+        cc_stock_price * 1.8
+    ),
+    value=float(
+        cc_stock_price
+    ),
+)
+
+sim_profit = covered_call_payoff(
+    sim_price,
+    cc_stock_price,
+    cc_strike_price,
+    cc_premium,
+    cc_shares
+)
+
+st.metric(
+    "Simulated Profit/Loss",
+    f"${float(sim_profit):,.2f}"
+)
+
+# ==========================================
+# END COVERED CALL
+# ==========================================
+
+st.markdown("---")
+st.success(
+    "Portfolio Analytics Pro Loaded Successfully"
+)
