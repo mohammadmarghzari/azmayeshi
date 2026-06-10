@@ -433,21 +433,21 @@ st.subheader(
 
 c1, c2, c3 = st.columns(3)
 
-    with c1:
+with c1:
 
         st.metric(
             "Expected Return",
             f"{best_return*100:.2f}%"
         )
 
-    with c2:
+with c2:
 
         st.metric(
             "Volatility",
             f"{best_volatility*100:.2f}%"
         )
 
-    with c3:
+with c3:
 
         st.metric(
             "Sharpe Ratio",
