@@ -11,3 +11,17 @@ setuptools
 wheel
 py_vollib>=1.0.1
 py_vollib_vectorized>=0.1.1
+# Core dependencies
+streamlit>=1.28.0
+pandas>=2.0.0
+numpy>=1.24.0
+plotly>=5.15.0
+yfinance>=0.2.0
+scipy>=1.11.0
+
+# Desktop app dependencies
+pywebview>=4.4
+proxy-tools>=0.1.0
+
+# Build dependencies (فقط برای توسعه)
+pyinstaller>=6.0.0
