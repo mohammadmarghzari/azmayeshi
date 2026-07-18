@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -20,6 +21,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ir.marghzari.portfolio360.theme.LocalChartColors
+import ir.marghzari.portfolio360.ui.motion.rememberChartReveal
 
 data class BarSeries(val name: String, val color: Color, val values: List<Double>)
 
@@ -38,6 +40,7 @@ fun BarChart(
 ) {
     val colors = LocalChartColors.current
     val textMeasurer = rememberTextMeasurer()
+    val reveal by rememberChartReveal(series)
 
     Column(modifier = modifier.fillMaxWidth()) {
         if (title != null) {
@@ -77,8 +80,8 @@ fun BarChart(
                 for ((si, s) in series.withIndex()) {
                     val v = s.values.getOrElse(c) { 0.0 }
                     val barLeft = groupLeft + barGap / 2 + innerWidth * si
-                    val yTop = yToPx(maxOf(0.0, v))
                     val yBase = yToPx(minOf(0.0, v))
+                    val yTop = yBase + (yToPx(maxOf(0.0, v)) - yBase) * reveal
                     val color = perBarColorOverride?.invoke(si, c, v) ?: s.color
                     drawRect(color, topLeft = Offset(barLeft + innerWidth * 0.08f, yTop), size = androidx.compose.ui.geometry.Size(innerWidth * 0.84f, (yBase - yTop).coerceAtLeast(1.5f)))
                 }

@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -16,6 +17,7 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.rememberTextMeasurer
@@ -23,6 +25,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ir.marghzari.portfolio360.theme.LocalChartColors
+import ir.marghzari.portfolio360.ui.motion.LocalMotionClock
+import ir.marghzari.portfolio360.ui.motion.rememberChartReveal
+import kotlin.math.sin
 
 data class LineSeries(
     val name: String,
@@ -55,12 +60,17 @@ fun LineChart(
 ) {
     val colors = LocalChartColors.current
     val textMeasurer = rememberTextMeasurer()
+    val reveal by rememberChartReveal(series)
+    // Read only in the Canvas draw phase below (not here in the composable body) so the shared
+    // clock's per-frame ticks trigger a cheap re-draw of this chart, not a full recomposition.
+    val motionClock = LocalMotionClock.current
 
     Column(modifier = modifier.fillMaxWidth()) {
         if (title != null) {
             Text(title, style = MaterialTheme.typography.titleSmall, color = colors.plotText, modifier = Modifier.padding(bottom = 6.dp))
         }
         Canvas(modifier = Modifier.fillMaxWidth().height(height)) {
+            val pulse = motionClock?.let { sin(it.time.value * 6.2831855f * 3f) * 0.5f + 0.5f } ?: 0.5f
             val allValues = series.flatMap { it.values } + horizontalRefLines.map { it.value }
             if (allValues.isEmpty()) return@Canvas
             val dataMin = yDomain?.first ?: allValues.min()
@@ -90,69 +100,81 @@ fun LineChart(
                 drawText(measured, topLeft = Offset(4.dp.toPx(), y - measured.size.height / 2f))
             }
 
-            // Horizontal reference lines
-            horizontalRefLines.forEach { ref ->
-                val y = yToPx(ref.value)
-                val effect = if (ref.dashed) PathEffect.dashPathEffect(floatArrayOf(8f, 6f)) else null
-                drawLine(ref.color.copy(alpha = 0.75f), Offset(leftPad, y), Offset(size.width - rightPad, y), strokeWidth = 1.4f, pathEffect = effect)
-                ref.label?.let { lbl ->
-                    val measured = textMeasurer.measure(lbl, style = TextStyle(fontSize = 9.sp, color = ref.color))
-                    drawText(measured, topLeft = Offset(size.width - rightPad - measured.size.width - 4f, y - measured.size.height - 2f))
-                }
-            }
-
-            // Series fills first (so lines draw on top)
-            series.forEach { s ->
-                if (s.values.isEmpty()) return@forEach
-                if (s.fillToZero) {
-                    val zeroY = yToPx(0.0).coerceIn(topPad, topPad + plotH)
-                    val path = androidx.compose.ui.graphics.Path().apply {
-                        moveTo(xToPx(0), zeroY)
-                        s.values.forEachIndexed { i, v -> lineTo(xToPx(i), yToPx(v)) }
-                        lineTo(xToPx(s.values.size - 1), zeroY)
-                        close()
-                    }
-                    drawPath(path, s.color.copy(alpha = s.fillAlpha), style = Fill)
-                } else if (s.fillToSeriesIndex != null) {
-                    val other = series.getOrNull(s.fillToSeriesIndex) ?: return@forEach
-                    val n = minOf(s.values.size, other.values.size)
-                    if (n < 2) return@forEach
-                    val path = androidx.compose.ui.graphics.Path().apply {
-                        moveTo(xToPx(0), yToPx(s.values[0]))
-                        for (i in 1 until n) lineTo(xToPx(i), yToPx(s.values[i]))
-                        for (i in n - 1 downTo 0) lineTo(xToPx(i), yToPx(other.values[i]))
-                        close()
-                    }
-                    drawPath(path, s.color.copy(alpha = s.fillAlpha), style = Fill)
-                }
-            }
-
-            // Series lines
-            series.forEach { s ->
-                if (s.values.size < 2) return@forEach
-                val path = androidx.compose.ui.graphics.Path().apply {
-                    moveTo(xToPx(0), yToPx(s.values[0]))
-                    for (i in 1 until s.values.size) lineTo(xToPx(i), yToPx(s.values[i]))
-                }
-                val effect = if (s.dashed) PathEffect.dashPathEffect(floatArrayOf(10f, 6f)) else null
-                drawPath(
-                    path, s.color,
-                    style = Stroke(width = s.strokeWidth.toPx(), cap = StrokeCap.Round, pathEffect = effect),
-                )
-            }
-
-            // Vertical reference lines, positioned via [xValues] interpolation (e.g. Strike/Spot/Breakeven markers).
-            if (xValues != null && xValues.size >= 2) {
-                val xMin = xValues.first()
-                val xMax = xValues.last()
-                verticalRefLines.forEach { ref ->
-                    val frac = ((ref.value - xMin) / (xMax - xMin)).coerceIn(0.0, 1.0)
-                    val x = leftPad + plotW * frac.toFloat()
+            // Everything data-derived (fills/lines/ref-lines/markers) draws inside the reveal clip,
+            // so the whole plot appears to draw itself in left-to-right rather than popping in.
+            clipRect(left = 0f, top = 0f, right = leftPad + plotW * reveal, bottom = size.height) {
+                // Horizontal reference lines
+                horizontalRefLines.forEach { ref ->
+                    val y = yToPx(ref.value)
                     val effect = if (ref.dashed) PathEffect.dashPathEffect(floatArrayOf(8f, 6f)) else null
-                    drawLine(ref.color.copy(alpha = 0.8f), Offset(x, topPad), Offset(x, topPad + plotH), strokeWidth = 1.4f, pathEffect = effect)
+                    drawLine(ref.color.copy(alpha = 0.75f), Offset(leftPad, y), Offset(size.width - rightPad, y), strokeWidth = 1.4f, pathEffect = effect)
+                    // Energy-ring-style pulsing marker at the target/ref line.
+                    drawCircle(ref.color, radius = (3.5f + 1.5f * pulse), center = Offset(size.width - rightPad - 6f, y), alpha = 0.5f + 0.3f * pulse)
                     ref.label?.let { lbl ->
                         val measured = textMeasurer.measure(lbl, style = TextStyle(fontSize = 9.sp, color = ref.color))
-                        drawText(measured, topLeft = Offset((x - measured.size.width / 2f).coerceIn(0f, size.width - measured.size.width), topPad + 2f))
+                        drawText(measured, topLeft = Offset(size.width - rightPad - measured.size.width - 4f, y - measured.size.height - 2f))
+                    }
+                }
+
+                // Series fills first (so lines draw on top)
+                series.forEach { s ->
+                    if (s.values.isEmpty()) return@forEach
+                    if (s.fillToZero) {
+                        val zeroY = yToPx(0.0).coerceIn(topPad, topPad + plotH)
+                        val path = androidx.compose.ui.graphics.Path().apply {
+                            moveTo(xToPx(0), zeroY)
+                            s.values.forEachIndexed { i, v -> lineTo(xToPx(i), yToPx(v)) }
+                            lineTo(xToPx(s.values.size - 1), zeroY)
+                            close()
+                        }
+                        drawPath(path, s.color.copy(alpha = s.fillAlpha), style = Fill)
+                    } else if (s.fillToSeriesIndex != null) {
+                        val other = series.getOrNull(s.fillToSeriesIndex) ?: return@forEach
+                        val n = minOf(s.values.size, other.values.size)
+                        if (n < 2) return@forEach
+                        val path = androidx.compose.ui.graphics.Path().apply {
+                            moveTo(xToPx(0), yToPx(s.values[0]))
+                            for (i in 1 until n) lineTo(xToPx(i), yToPx(s.values[i]))
+                            for (i in n - 1 downTo 0) lineTo(xToPx(i), yToPx(other.values[i]))
+                            close()
+                        }
+                        drawPath(path, s.color.copy(alpha = s.fillAlpha), style = Fill)
+                    }
+                }
+
+                // Series lines + a pulsing "current value" marker at each series' last point
+                series.forEach { s ->
+                    if (s.values.size < 2) return@forEach
+                    val path = androidx.compose.ui.graphics.Path().apply {
+                        moveTo(xToPx(0), yToPx(s.values[0]))
+                        for (i in 1 until s.values.size) lineTo(xToPx(i), yToPx(s.values[i]))
+                    }
+                    val effect = if (s.dashed) PathEffect.dashPathEffect(floatArrayOf(10f, 6f)) else null
+                    drawPath(
+                        path, s.color,
+                        style = Stroke(width = s.strokeWidth.toPx(), cap = StrokeCap.Round, pathEffect = effect),
+                    )
+                    if (!s.dashed) {
+                        val lastX = xToPx(s.values.size - 1)
+                        val lastY = yToPx(s.values.last())
+                        drawCircle(s.color.copy(alpha = 0.25f + 0.20f * pulse), radius = (5f + 3f * pulse), center = Offset(lastX, lastY))
+                        drawCircle(s.color, radius = 3f, center = Offset(lastX, lastY))
+                    }
+                }
+
+                // Vertical reference lines, positioned via [xValues] interpolation (e.g. Strike/Spot/Breakeven markers).
+                if (xValues != null && xValues.size >= 2) {
+                    val xMin = xValues.first()
+                    val xMax = xValues.last()
+                    verticalRefLines.forEach { ref ->
+                        val frac = ((ref.value - xMin) / (xMax - xMin)).coerceIn(0.0, 1.0)
+                        val x = leftPad + plotW * frac.toFloat()
+                        val effect = if (ref.dashed) PathEffect.dashPathEffect(floatArrayOf(8f, 6f)) else null
+                        drawLine(ref.color.copy(alpha = 0.8f), Offset(x, topPad), Offset(x, topPad + plotH), strokeWidth = 1.4f, pathEffect = effect)
+                        ref.label?.let { lbl ->
+                            val measured = textMeasurer.measure(lbl, style = TextStyle(fontSize = 9.sp, color = ref.color))
+                            drawText(measured, topLeft = Offset((x - measured.size.width / 2f).coerceIn(0f, size.width - measured.size.width), topPad + 2f))
+                        }
                     }
                 }
             }

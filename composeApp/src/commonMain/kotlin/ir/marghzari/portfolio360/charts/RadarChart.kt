@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -21,6 +22,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ir.marghzari.portfolio360.theme.LocalChartColors
+import ir.marghzari.portfolio360.ui.motion.rememberChartReveal
 import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
@@ -41,6 +43,7 @@ fun RadarChart(
     val colors = LocalChartColors.current
     val textMeasurer = rememberTextMeasurer()
     val n = axisLabels.size
+    val reveal by rememberChartReveal(series)
 
     Column(modifier = modifier.fillMaxWidth()) {
         if (title != null) {
@@ -84,7 +87,7 @@ fun RadarChart(
                 val path = Path()
                 for (i in 0 until n) {
                     val v = s.values.getOrElse(i) { 0.0 }
-                    val p = pointFor(i, v / maxValue)
+                    val p = pointFor(i, v / maxValue * reveal)
                     if (i == 0) path.moveTo(p.x, p.y) else path.lineTo(p.x, p.y)
                 }
                 path.close()

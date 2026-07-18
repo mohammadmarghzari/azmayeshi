@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -20,6 +21,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ir.marghzari.portfolio360.theme.LocalChartColors
+import ir.marghzari.portfolio360.ui.motion.rememberChartReveal
 import kotlin.math.abs
 
 /** Diverging red -> background -> green heatmap, used for correlation matrices and seasonality grids. */
@@ -36,6 +38,7 @@ fun HeatmapChart(
 ) {
     val colors = LocalChartColors.current
     val textMeasurer = rememberTextMeasurer()
+    val reveal by rememberChartReveal(values.contentDeepHashCode())
     val (vMin, vMax) = valueRange
     val maxAbs = maxOf(abs(vMin), abs(vMax)).takeIf { it > 0 } ?: 1.0
 
@@ -63,8 +66,8 @@ fun HeatmapChart(
                     val color = if (frac >= 0) lerp(colors.plotBg, colors.green, frac.toFloat()) else lerp(colors.plotBg, colors.red, (-frac).toFloat())
                     val x = leftPad + cellW * c
                     val y = topPad + cellH * r
-                    drawRect(color, topLeft = Offset(x, y), size = Size(cellW - 1.5f, cellH - 1.5f))
-                    if (cellW > 30f && cellH > 20f) {
+                    drawRect(color.copy(alpha = color.alpha * reveal), topLeft = Offset(x, y), size = Size(cellW - 1.5f, cellH - 1.5f))
+                    if (cellW > 30f && cellH > 20f && reveal > 0.6f) {
                         val label = valueFormatter(v)
                         val measured = textMeasurer.measure(label, style = TextStyle(fontSize = 9.sp, color = colors.plotText))
                         drawText(measured, topLeft = Offset(x + cellW / 2f - measured.size.width / 2f, y + cellH / 2f - measured.size.height / 2f))

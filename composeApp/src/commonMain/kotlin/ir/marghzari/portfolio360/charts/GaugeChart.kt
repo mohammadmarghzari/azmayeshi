@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -20,6 +21,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ir.marghzari.portfolio360.theme.LocalChartColors
+import ir.marghzari.portfolio360.ui.motion.rememberChartReveal
 import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
@@ -39,6 +41,7 @@ fun GaugeChart(
 ) {
     val colors = LocalChartColors.current
     val textMeasurer = rememberTextMeasurer()
+    val reveal by rememberChartReveal(value)
     Column(modifier = modifier.fillMaxWidth()) {
         Canvas(modifier = Modifier.fillMaxWidth().height(height)) {
             val diameter = min(size.width * 0.9f, size.height * 1.8f)
@@ -62,7 +65,9 @@ fun GaugeChart(
                 )
             }
 
-            val needleAngleDeg = angleFor(value)
+            // The needle sweeps in from the range's start to its true value as the gauge reveals.
+            val animatedValue = valueRange.start + (value - valueRange.start) * reveal
+            val needleAngleDeg = angleFor(animatedValue)
             val rad = Math.toRadians(needleAngleDeg.toDouble())
             val needleLen = radius * 0.86f
             val tipX = cx + (needleLen * cos(rad)).toFloat()
@@ -70,13 +75,15 @@ fun GaugeChart(
             drawLine(needleColor, Offset(cx, cy), Offset(tipX, tipY), strokeWidth = 4.5f, cap = androidx.compose.ui.graphics.StrokeCap.Round)
             drawCircle(needleColor, radius = 7f, center = Offset(cx, cy))
 
-            val valueText = "%.0f".format(value)
+            val valueText = "%.0f".format(animatedValue)
             val measured = textMeasurer.measure(valueText, style = TextStyle(fontSize = 30.sp, color = colors.plotText))
             drawText(measured, topLeft = Offset(cx - measured.size.width / 2f, cy - radius * 0.55f))
 
-            centerLabel?.let {
-                val labelMeasured = textMeasurer.measure(it, style = TextStyle(fontSize = 13.sp, color = needleColor))
-                drawText(labelMeasured, topLeft = Offset(cx - labelMeasured.size.width / 2f, cy - radius * 0.55f + measured.size.height + 2f))
+            if (reveal > 0.7f) {
+                centerLabel?.let {
+                    val labelMeasured = textMeasurer.measure(it, style = TextStyle(fontSize = 13.sp, color = needleColor))
+                    drawText(labelMeasured, topLeft = Offset(cx - labelMeasured.size.width / 2f, cy - radius * 0.55f + measured.size.height + 2f))
+                }
             }
         }
     }

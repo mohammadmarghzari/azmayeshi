@@ -8,10 +8,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.TextStyle
@@ -20,6 +22,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ir.marghzari.portfolio360.theme.LocalChartColors
+import ir.marghzari.portfolio360.ui.motion.rememberChartReveal
 
 data class ScatterPoint(val x: Double, val y: Double, val colorValue: Double = 0.0)
 data class ScatterMarker(val x: Double, val y: Double, val label: String, val color: Color)
@@ -42,6 +45,7 @@ fun ScatterChart(
 ) {
     val colors = LocalChartColors.current
     val textMeasurer = rememberTextMeasurer()
+    val reveal by rememberChartReveal(points)
 
     Column(modifier = modifier.fillMaxWidth()) {
         if (title != null) {
@@ -74,29 +78,31 @@ fun ScatterChart(
                 drawText(measured, topLeft = Offset(x - measured.size.width / 2f, size.height - bottomPad + 4f))
             }
 
-            val (cLow, cHigh) = colorRange ?: (points.minOf { it.colorValue } to points.maxOf { it.colorValue })
-            points.forEach { p ->
-                val frac = if (cHigh > cLow) ((p.colorValue - cLow) / (cHigh - cLow)).coerceIn(0.0, 1.0) else 0.5
-                val color = lerp(colorLow, colorHigh, frac.toFloat())
-                drawCircle(color.copy(alpha = 0.55f), radius = 2.6f, center = Offset(xToPx(p.x), yToPx(p.y)))
-            }
-
-            lineOverlay?.let { line ->
-                if (line.size >= 2) {
-                    val path = androidx.compose.ui.graphics.Path().apply {
-                        moveTo(xToPx(line[0].first), yToPx(line[0].second))
-                        for (i in 1 until line.size) lineTo(xToPx(line[i].first), yToPx(line[i].second))
-                    }
-                    drawPath(path, lineColor, style = Stroke(width = 2.4f))
+            clipRect(left = 0f, top = 0f, right = leftPad + plotW * reveal, bottom = size.height) {
+                val (cLow, cHigh) = colorRange ?: (points.minOf { it.colorValue } to points.maxOf { it.colorValue })
+                points.forEach { p ->
+                    val frac = if (cHigh > cLow) ((p.colorValue - cLow) / (cHigh - cLow)).coerceIn(0.0, 1.0) else 0.5
+                    val color = lerp(colorLow, colorHigh, frac.toFloat())
+                    drawCircle(color.copy(alpha = 0.55f), radius = 2.6f, center = Offset(xToPx(p.x), yToPx(p.y)))
                 }
-            }
 
-            markers.forEach { m ->
-                val center = Offset(xToPx(m.x), yToPx(m.y))
-                drawCircle(m.color, radius = 6f, center = center)
-                drawCircle(colors.plotBg, radius = 6f, center = center, style = Stroke(width = 1.5f))
-                val measured = textMeasurer.measure(m.label, style = TextStyle(fontSize = 10.sp, color = m.color))
-                drawText(measured, topLeft = Offset(center.x + 8f, center.y - measured.size.height / 2f))
+                lineOverlay?.let { line ->
+                    if (line.size >= 2) {
+                        val path = androidx.compose.ui.graphics.Path().apply {
+                            moveTo(xToPx(line[0].first), yToPx(line[0].second))
+                            for (i in 1 until line.size) lineTo(xToPx(line[i].first), yToPx(line[i].second))
+                        }
+                        drawPath(path, lineColor, style = Stroke(width = 2.4f))
+                    }
+                }
+
+                markers.forEach { m ->
+                    val center = Offset(xToPx(m.x), yToPx(m.y))
+                    drawCircle(m.color, radius = 6f, center = center)
+                    drawCircle(colors.plotBg, radius = 6f, center = center, style = Stroke(width = 1.5f))
+                    val measured = textMeasurer.measure(m.label, style = TextStyle(fontSize = 10.sp, color = m.color))
+                    drawText(measured, topLeft = Offset(center.x + 8f, center.y - measured.size.height / 2f))
+                }
             }
         }
     }

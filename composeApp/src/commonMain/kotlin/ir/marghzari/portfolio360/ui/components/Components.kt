@@ -44,6 +44,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import ir.marghzari.portfolio360.theme.LocalChartColors
+import ir.marghzari.portfolio360.ui.motion.energyRing
+import ir.marghzari.portfolio360.ui.motion.floatingMotion
+import ir.marghzari.portfolio360.ui.motion.orbitParticles
+import ir.marghzari.portfolio360.ui.motion.tilt3D
+import kotlin.random.Random
 
 /** Small-caps section divider with a trailing rule, matching the `.bp-section` CSS class. */
 @Composable
@@ -69,13 +74,32 @@ fun SectionHeader(title: String, modifier: Modifier = Modifier) {
     }
 }
 
-/** Glassmorphism card container: translucent gradient fill, soft shadow, gradient edge highlight. */
+private val DEFAULT_MOTION_COLORS = listOf(Color(0xFF7C5CF6), Color(0xFF4E6BF2))
+
+/**
+ * Glassmorphism card container: translucent gradient fill, soft shadow, gradient edge highlight,
+ * plus the app-wide motion system (subtle float, orbit particles, passive device-tilt) — every
+ * screen picks this up automatically since they all already build on this one composable.
+ * Set [highlighted] on the one "hero" card per screen (a selected asset, a focused summary) to add
+ * the rotating energy ring; leave it off elsewhere so the ring stays a meaningful signal.
+ * [motionColors] lets a caller theme the particles/ring (e.g. gold/silver/copper for a commodity
+ * card via `motionColorsFor`); defaults to the app's purple/blue crypto glow.
+ */
 @Composable
-fun Card(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+fun Card(
+    modifier: Modifier = Modifier,
+    highlighted: Boolean = false,
+    motionColors: List<Color>? = null,
+    content: @Composable ColumnScope.() -> Unit,
+) {
     val colors = LocalChartColors.current
     val shape = RoundedCornerShape(18.dp)
+    val motionSeed = remember { Random.nextInt() }
+    val particleColors = motionColors ?: DEFAULT_MOTION_COLORS
     Column(
         modifier = modifier
+            .floatingMotion(seed = motionSeed)
+            .tilt3D()
             .shadow(elevation = 8.dp, shape = shape, ambientColor = Color.Black.copy(alpha = 0.25f), spotColor = Color.Black.copy(alpha = 0.35f))
             .background(
                 Brush.verticalGradient(listOf(colors.card.copy(alpha = 0.97f), colors.card.copy(alpha = 0.92f))),
@@ -88,6 +112,8 @@ fun Card(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> U
                 ),
                 shape = shape,
             )
+            .orbitParticles(colors = particleColors, seed = motionSeed)
+            .energyRing(active = highlighted, colors = particleColors, cornerRadius = 18.dp)
             .padding(16.dp),
         content = content,
     )
@@ -188,6 +214,7 @@ fun <T> SimpleDropdown(
                 .padding(top = 4.dp)
                 .background(colors.bg2, RoundedCornerShape(10.dp))
                 .border(1.dp, colors.plotGrid, RoundedCornerShape(10.dp))
+                .energyRing(active = true, cornerRadius = 10.dp, strokeWidth = 1.2.dp)
                 .clickable { expanded = true }
                 .padding(horizontal = 14.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,

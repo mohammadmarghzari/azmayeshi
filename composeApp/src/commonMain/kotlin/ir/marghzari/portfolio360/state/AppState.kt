@@ -82,6 +82,9 @@ class AppState {
     // Starred tickers on the asset price screen
     var favoriteTickers by mutableStateOf(setOf<String>())
 
+    // Global "reduce motion" switch for the app-wide decorative motion system.
+    var reducedMotion by mutableStateOf(false)
+
     val rf: Double get() = riskFreeRatePct / 100.0
 
     fun resetComputedPortfolio() {

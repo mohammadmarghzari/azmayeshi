@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -20,6 +21,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ir.marghzari.portfolio360.theme.LocalChartColors
+import ir.marghzari.portfolio360.ui.motion.rememberChartReveal
 import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
@@ -38,6 +40,7 @@ fun DonutChart(
     val colors = LocalChartColors.current
     val textMeasurer = rememberTextMeasurer()
     val total = slices.sumOf { it.value }.takeIf { it > 0 } ?: 1.0
+    val reveal by rememberChartReveal(slices)
 
     Column(modifier = modifier.fillMaxWidth()) {
         if (title != null) {
@@ -48,7 +51,7 @@ fun DonutChart(
             val topLeft = Offset((size.width - diameter) / 2f, (size.height - diameter) / 2f)
             var startAngle = -90f
             slices.forEach { slice ->
-                val sweep = (slice.value / total * 360.0).toFloat()
+                val sweep = (slice.value / total * 360.0).toFloat() * reveal
                 drawArc(
                     color = slice.color, startAngle = startAngle, sweepAngle = sweep, useCenter = true,
                     topLeft = topLeft, size = Size(diameter, diameter),
@@ -58,7 +61,8 @@ fun DonutChart(
             // Punch the hole.
             drawCircle(colors.plotBg, radius = diameter * holeFraction / 2f, center = Offset(size.width / 2f, size.height / 2f))
 
-            // Percent labels for slices above a visibility threshold.
+            // Percent labels for slices above a visibility threshold, once mostly drawn in.
+            if (reveal < 0.85f) return@Canvas
             startAngle = -90f
             val radius = diameter / 2f
             val labelRadius = (radius + diameter * holeFraction / 2f) / 2f

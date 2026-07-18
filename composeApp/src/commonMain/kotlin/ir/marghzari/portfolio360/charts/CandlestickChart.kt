@@ -8,9 +8,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.rememberTextMeasurer
@@ -18,6 +20,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ir.marghzari.portfolio360.theme.LocalChartColors
+import ir.marghzari.portfolio360.ui.motion.rememberChartReveal
 
 data class Candle(val open: Double, val high: Double, val low: Double, val close: Double)
 
@@ -33,6 +36,7 @@ fun CandlestickChart(
 ) {
     val colors = LocalChartColors.current
     val textMeasurer = rememberTextMeasurer()
+    val reveal by rememberChartReveal(candles)
 
     Column(modifier = modifier.fillMaxWidth()) {
         if (title != null) {
@@ -63,29 +67,31 @@ fun CandlestickChart(
                 drawText(measured, topLeft = Offset(4.dp.toPx(), y - measured.size.height / 2f))
             }
 
-            candles.forEachIndexed { i, c ->
-                val cx = leftPad + slot * i + slot / 2f
-                val up = c.close >= c.open
-                val color = if (up) colors.green else colors.red
-                drawLine(color, Offset(cx, yToPx(c.high)), Offset(cx, yToPx(c.low)), strokeWidth = 1.4f)
-                val top = yToPx(maxOf(c.open, c.close))
-                val bottom = yToPx(minOf(c.open, c.close))
-                drawRect(color, topLeft = Offset(cx - bodyWidth / 2f, top), size = androidx.compose.ui.geometry.Size(bodyWidth, (bottom - top).coerceAtLeast(1.2f)))
-            }
-
-            fun drawMa(values: List<Double?>, color: Color) {
-                var started = false
-                val path = androidx.compose.ui.graphics.Path()
-                values.forEachIndexed { i, v ->
-                    if (v == null) return@forEachIndexed
-                    val x = leftPad + slot * i + slot / 2f
-                    val y = yToPx(v)
-                    if (!started) { path.moveTo(x, y); started = true } else path.lineTo(x, y)
+            clipRect(left = 0f, top = 0f, right = leftPad + plotW * reveal, bottom = size.height) {
+                candles.forEachIndexed { i, c ->
+                    val cx = leftPad + slot * i + slot / 2f
+                    val up = c.close >= c.open
+                    val color = if (up) colors.green else colors.red
+                    drawLine(color, Offset(cx, yToPx(c.high)), Offset(cx, yToPx(c.low)), strokeWidth = 1.4f)
+                    val top = yToPx(maxOf(c.open, c.close))
+                    val bottom = yToPx(minOf(c.open, c.close))
+                    drawRect(color, topLeft = Offset(cx - bodyWidth / 2f, top), size = androidx.compose.ui.geometry.Size(bodyWidth, (bottom - top).coerceAtLeast(1.2f)))
                 }
-                if (started) drawPath(path, color, style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.6f))
+
+                fun drawMa(values: List<Double?>, color: Color) {
+                    var started = false
+                    val path = androidx.compose.ui.graphics.Path()
+                    values.forEachIndexed { i, v ->
+                        if (v == null) return@forEachIndexed
+                        val x = leftPad + slot * i + slot / 2f
+                        val y = yToPx(v)
+                        if (!started) { path.moveTo(x, y); started = true } else path.lineTo(x, y)
+                    }
+                    if (started) drawPath(path, color, style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.6f))
+                }
+                ma20?.let { drawMa(it, colors.blueAccent) }
+                ma50?.let { drawMa(it, colors.gold) }
             }
-            ma20?.let { drawMa(it, colors.blueAccent) }
-            ma50?.let { drawMa(it, colors.gold) }
         }
     }
 }
@@ -99,6 +105,7 @@ fun VolumeBarChart(
     height: Dp = 130.dp,
 ) {
     val colors = LocalChartColors.current
+    val reveal by rememberChartReveal(volumes)
     Column(modifier = modifier.fillMaxWidth()) {
         if (title != null) Text(title, style = MaterialTheme.typography.titleSmall, color = colors.plotText, modifier = Modifier.padding(bottom = 6.dp))
         Canvas(modifier = Modifier.fillMaxWidth().height(height)) {
@@ -109,7 +116,7 @@ fun VolumeBarChart(
             val slot = plotW / volumes.size
             val barW = (slot * 0.6f).coerceAtLeast(1f)
             volumes.forEachIndexed { i, v ->
-                val h = (v / maxV * size.height).toFloat()
+                val h = (v / maxV * size.height).toFloat() * reveal
                 val x = leftPad + slot * i + slot / 2f
                 val color = if (upFlags.getOrElse(i) { true }) colors.green else colors.red
                 drawRect(color.copy(alpha = 0.75f), topLeft = Offset(x - barW / 2f, size.height - h), size = androidx.compose.ui.geometry.Size(barW, h))

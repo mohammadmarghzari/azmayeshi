@@ -4,8 +4,9 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.BorderStroke
@@ -28,6 +29,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Animation
+import androidx.compose.material.icons.filled.MotionPhotosOff
 import androidx.compose.material3.Divider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -45,6 +48,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.material3.DrawerValue
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
@@ -62,6 +66,9 @@ import ir.marghzari.portfolio360.theme.Portfolio360Theme
 import ir.marghzari.portfolio360.ui.background.AnimatedBackground
 import ir.marghzari.portfolio360.ui.background.BackgroundArt
 import ir.marghzari.portfolio360.ui.branding.PremiumIconMotion
+import ir.marghzari.portfolio360.ui.motion.LocalMotionClock
+import ir.marghzari.portfolio360.ui.motion.LocalReducedMotion
+import ir.marghzari.portfolio360.ui.motion.rememberMotionClock
 import ir.marghzari.portfolio360.ui.screens.AllocationScreen
 import ir.marghzari.portfolio360.ui.screens.AdvancedOptionsScreen
 import ir.marghzari.portfolio360.ui.screens.AlertsScreen
@@ -102,16 +109,22 @@ fun App() {
     }
 
     Portfolio360Theme(darkTheme = appState.isDarkTheme) {
-        Crossfade(targetState = showSplash, animationSpec = tween(500), label = "splash-crossfade") { splashing ->
-            if (splashing) {
-                SplashScreen(progress = splashProgress)
-            } else {
-                BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-                    val isWide = maxWidth >= 800.dp
-                    if (isWide) {
-                        WideLayout(appState)
-                    } else {
-                        CompactLayout(appState)
+        val motionClock = rememberMotionClock()
+        CompositionLocalProvider(
+            LocalMotionClock provides motionClock,
+            LocalReducedMotion provides appState.reducedMotion,
+        ) {
+            Crossfade(targetState = showSplash, animationSpec = tween(500), label = "splash-crossfade") { splashing ->
+                if (splashing) {
+                    SplashScreen(progress = splashProgress)
+                } else {
+                    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                        val isWide = maxWidth >= 800.dp
+                        if (isWide) {
+                            WideLayout(appState)
+                        } else {
+                            CompactLayout(appState)
+                        }
                     }
                 }
             }
@@ -146,6 +159,13 @@ private fun WideLayout(appState: AppState) {
                 }
                 IconButton(onClick = { appState.isDarkTheme = !appState.isDarkTheme }, modifier = Modifier.padding(top = 12.dp)) {
                     Icon(if (appState.isDarkTheme) Icons.Filled.LightMode else Icons.Filled.DarkMode, contentDescription = "Theme")
+                }
+                IconButton(onClick = { appState.reducedMotion = !appState.reducedMotion }) {
+                    Icon(
+                        if (appState.reducedMotion) Icons.Filled.MotionPhotosOff else Icons.Filled.Animation,
+                        contentDescription = "کاهش انیمیشن",
+                        tint = if (appState.reducedMotion) colors.muted else colors.blueAccent,
+                    )
                 }
             }
         }
@@ -203,6 +223,13 @@ private fun CompactLayout(appState: AppState) {
                         IconButton(onClick = { appState.isDarkTheme = !appState.isDarkTheme }) {
                             Icon(if (appState.isDarkTheme) Icons.Filled.LightMode else Icons.Filled.DarkMode, contentDescription = "Theme")
                         }
+                        IconButton(onClick = { appState.reducedMotion = !appState.reducedMotion }) {
+                            Icon(
+                                if (appState.reducedMotion) Icons.Filled.MotionPhotosOff else Icons.Filled.Animation,
+                                contentDescription = "کاهش انیمیشن",
+                                tint = if (appState.reducedMotion) colors.muted else colors.blueAccent,
+                            )
+                        }
                     },
                 )
             },
@@ -219,8 +246,8 @@ private fun ScreenHost(destination: Destination, appState: AppState) {
     AnimatedContent(
         targetState = destination,
         transitionSpec = {
-            (fadeIn(tween(420)) + slideInVertically(tween(420)) { it / 16 }) togetherWith
-                (fadeOut(tween(180)) + slideOutVertically(tween(180)) { -it / 24 })
+            (fadeIn(tween(300)) + scaleIn(tween(300), initialScale = 0.97f) + slideInVertically(tween(300)) { it / 20 }) togetherWith
+                (fadeOut(tween(250)) + scaleOut(tween(250), targetScale = 1.02f))
         },
         label = "screen-transition",
     ) { dest ->

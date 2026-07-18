@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
@@ -20,6 +21,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ir.marghzari.portfolio360.theme.LocalChartColors
+import ir.marghzari.portfolio360.ui.motion.rememberChartReveal
 import kotlin.math.max
 import kotlin.math.min
 
@@ -96,6 +98,7 @@ fun TreemapChart(
     val textMeasurer = rememberTextMeasurer()
     val sorted = items.sortedByDescending { it.value }
     val total = sorted.sumOf { it.value }.takeIf { it > 0 } ?: 1.0
+    val reveal by rememberChartReveal(sorted)
 
     Column(modifier = modifier.fillMaxWidth()) {
         if (title != null) {
@@ -111,8 +114,13 @@ fun TreemapChart(
 
             sorted.forEachIndexed { i, item ->
                 val r = rects.getOrNull(i) ?: return@forEachIndexed
-                drawRect(item.color, topLeft = Offset(r.left, r.top), size = Size(max(r.width - 2f, 0f), max(r.height - 2f, 0f)))
-                if (r.width > 46f && r.height > 26f) {
+                // Each tile grows in from its own center rather than popping in at full size.
+                val cx = (r.left + r.right) / 2f
+                val cy = (r.top + r.bottom) / 2f
+                val w = max(r.width - 2f, 0f) * reveal
+                val h = max(r.height - 2f, 0f) * reveal
+                drawRect(item.color, topLeft = Offset(cx - w / 2f, cy - h / 2f), size = Size(w, h))
+                if (r.width > 46f && r.height > 26f && reveal > 0.7f) {
                     val pct = "%.1f%%".format(item.value / total * 100)
                     val labelMeasured = textMeasurer.measure(item.label, style = TextStyle(fontSize = 11.sp, color = Color.White))
                     val pctMeasured = textMeasurer.measure(pct, style = TextStyle(fontSize = 10.sp, color = Color.White.copy(alpha = 0.85f)))

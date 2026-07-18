@@ -273,7 +273,7 @@ private fun AssetHeroCard(
     val starScale = remember { Animatable(1f) }
 
     Box(modifier = Modifier.fillMaxWidth()) {
-        Card(modifier = Modifier.fillMaxWidth()) {
+        Card(modifier = Modifier.fillMaxWidth(), highlighted = true) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,

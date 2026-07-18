@@ -27,6 +27,7 @@ import ir.marghzari.portfolio360.ui.components.Card
 import ir.marghzari.portfolio360.ui.components.MetricTile
 import ir.marghzari.portfolio360.ui.components.SectionHeader
 import ir.marghzari.portfolio360.ui.components.SimpleDropdown
+import ir.marghzari.portfolio360.ui.motion.motionColorsFor
 
 /** Split out of the Iran tools screen into its own tab so it's a separate, focused partition. */
 @Composable
@@ -54,9 +55,9 @@ fun CertificatesScreen(appState: AppState) {
                 val fair = IranTools.fairPrice(c.key, effectiveWorld, marketDollar)
                 c to IranTools.bubble(marketPrices.getValue(c.key).value, fair)
             }
-            Card(modifier = Modifier.fillMaxWidth().padding(top = 10.dp)) {
-                bubbles.forEach { (c, b) ->
-                    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+            bubbles.forEach { (c, b) ->
+                Card(modifier = Modifier.fillMaxWidth().padding(top = 6.dp), motionColors = motionColorsFor(c.key)) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("${c.icon} ${c.labelFa}", color = colors.textPrimary, style = MaterialTheme.typography.bodySmall)
                         Text(b.fairPriceToman?.let { "%,.0f".format(it) } ?: "—", color = colors.muted, style = MaterialTheme.typography.bodySmall)
                         Text(
@@ -66,8 +67,10 @@ fun CertificatesScreen(appState: AppState) {
                         )
                     }
                 }
-                val validBubbles = bubbles.mapNotNull { (c, b) -> b.bubblePct?.let { c.labelFa to it } }
-                if (validBubbles.isNotEmpty()) {
+            }
+            val validBubbles = bubbles.mapNotNull { (c, b) -> b.bubblePct?.let { c.labelFa to it } }
+            if (validBubbles.isNotEmpty()) {
+                Card(modifier = Modifier.fillMaxWidth().padding(top = 10.dp)) {
                     BarChart(
                         categories = validBubbles.map { it.first },
                         series = listOf(BarSeries("حباب (%)", colors.gold, validBubbles.map { it.second })),
