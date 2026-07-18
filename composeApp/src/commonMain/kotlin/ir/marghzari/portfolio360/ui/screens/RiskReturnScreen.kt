@@ -181,7 +181,7 @@ fun RiskReturnScreen(appState: AppState) {
                     categories = labels, series = listOf(BarSeries("Frequency", colors.blueAccent, counts.toList())),
                     title = "DAILY RETURN DISTRIBUTION", showLegend = false, zeroLine = false,
                 )
-                Text("CVaR 95%: %.2f%%".format(cvarLine), style = MaterialTheme.typography.labelSmall, color = colors.red)
+                Text("CVaR 95%%: %.2f%%".format(cvarLine), style = MaterialTheme.typography.labelSmall, color = colors.red)
             }
         }
     }
