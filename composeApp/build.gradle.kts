@@ -88,6 +88,12 @@ android {
     }
 }
 
+compose.resources {
+    publicResClass = false
+    packageOfResClass = "ir.marghzari.portfolio360.generated.resources"
+    generateResClass = auto
+}
+
 compose.desktop {
     application {
         mainClass = "ir.marghzari.portfolio360.desktop.MainKt"

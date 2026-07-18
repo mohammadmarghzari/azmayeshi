@@ -1,9 +1,18 @@
 package ir.marghzari.portfolio360
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -13,6 +22,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DarkMode
@@ -35,6 +45,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.material3.DrawerValue
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -42,11 +53,14 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import ir.marghzari.portfolio360.nav.Destination
 import ir.marghzari.portfolio360.state.AppState
 import ir.marghzari.portfolio360.theme.LocalChartColors
 import ir.marghzari.portfolio360.theme.Portfolio360Theme
+import ir.marghzari.portfolio360.ui.background.AnimatedBackground
+import ir.marghzari.portfolio360.ui.background.BackgroundArt
 import ir.marghzari.portfolio360.ui.screens.AllocationScreen
 import ir.marghzari.portfolio360.ui.screens.AdvancedOptionsScreen
 import ir.marghzari.portfolio360.ui.screens.AlertsScreen
@@ -61,21 +75,43 @@ import ir.marghzari.portfolio360.ui.screens.PriceChartScreen
 import ir.marghzari.portfolio360.ui.screens.RebalanceScreen
 import ir.marghzari.portfolio360.ui.screens.RiskReturnScreen
 import ir.marghzari.portfolio360.ui.screens.SavePortfolioScreen
+import ir.marghzari.portfolio360.ui.screens.SplashScreen
 import ir.marghzari.portfolio360.ui.screens.StressMonteCarloScreen
 import ir.marghzari.portfolio360.ui.screens.StyleCompareScreen
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+
+private const val SPLASH_DURATION_MS = 2000
 
 /** Root composable, shared verbatim across the Android and Desktop targets. */
 @Composable
 fun App() {
     val appState = remember { AppState() }
+    var showSplash by remember { mutableStateOf(true) }
+    var splashProgress by remember { mutableStateOf(0f) }
+
+    LaunchedEffect(Unit) {
+        val steps = 40
+        repeat(steps) { i ->
+            splashProgress = (i + 1) / steps.toFloat()
+            delay((SPLASH_DURATION_MS / steps).toLong())
+        }
+        showSplash = false
+    }
+
     Portfolio360Theme(darkTheme = appState.isDarkTheme) {
-        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-            val isWide = maxWidth >= 800.dp
-            if (isWide) {
-                WideLayout(appState)
+        Crossfade(targetState = showSplash, animationSpec = tween(500), label = "splash-crossfade") { splashing ->
+            if (splashing) {
+                SplashScreen(progress = splashProgress)
             } else {
-                CompactLayout(appState)
+                BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                    val isWide = maxWidth >= 800.dp
+                    if (isWide) {
+                        WideLayout(appState)
+                    } else {
+                        CompactLayout(appState)
+                    }
+                }
             }
         }
     }
@@ -168,22 +204,37 @@ private fun CompactLayout(appState: AppState) {
 
 @Composable
 private fun ScreenHost(destination: Destination, appState: AppState) {
-    when (destination) {
-        Destination.ALLOCATION -> AllocationScreen(appState)
-        Destination.RISK_RETURN -> RiskReturnScreen(appState)
-        Destination.PRICE_CHART -> PriceChartScreen(appState)
-        Destination.STYLE_COMPARE -> StyleCompareScreen(appState)
-        Destination.EFFICIENT_FRONTIER -> EfficientFrontierScreen(appState)
-        Destination.ADVANCED_OPTIONS -> AdvancedOptionsScreen(appState)
-        Destination.BLACK_LITTERMAN -> BlackLittermanScreen(appState)
-        Destination.STRESS_MC -> StressMonteCarloScreen(appState)
-        Destination.REBALANCE -> RebalanceScreen(appState)
-        Destination.BENCHMARK -> BenchmarkScreen(appState)
-        Destination.LIVE_DATA -> LiveDataScreen(appState)
-        Destination.SAVE_PORTFOLIO -> SavePortfolioScreen(appState)
-        Destination.ALERTS -> AlertsScreen(appState)
-        Destination.IRAN_TOOLS -> IranToolsScreen(appState)
-        Destination.BOURSE_OPTIONS -> BourseOptionsScreen(appState)
-        Destination.IME_LIVE -> ImeLiveScreen(appState)
+    AnimatedContent(
+        targetState = destination,
+        transitionSpec = {
+            (fadeIn(tween(420)) + slideInVertically(tween(420)) { it / 16 }) togetherWith
+                (fadeOut(tween(180)) + slideOutVertically(tween(180)) { -it / 24 })
+        },
+        label = "screen-transition",
+    ) { dest ->
+        Box(modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(22.dp))) {
+            AnimatedBackground(image = BackgroundArt.forDestination(dest)) {
+                Box(modifier = Modifier.fillMaxSize().padding(4.dp)) {
+                    when (dest) {
+                        Destination.ALLOCATION -> AllocationScreen(appState)
+                        Destination.RISK_RETURN -> RiskReturnScreen(appState)
+                        Destination.PRICE_CHART -> PriceChartScreen(appState)
+                        Destination.STYLE_COMPARE -> StyleCompareScreen(appState)
+                        Destination.EFFICIENT_FRONTIER -> EfficientFrontierScreen(appState)
+                        Destination.ADVANCED_OPTIONS -> AdvancedOptionsScreen(appState)
+                        Destination.BLACK_LITTERMAN -> BlackLittermanScreen(appState)
+                        Destination.STRESS_MC -> StressMonteCarloScreen(appState)
+                        Destination.REBALANCE -> RebalanceScreen(appState)
+                        Destination.BENCHMARK -> BenchmarkScreen(appState)
+                        Destination.LIVE_DATA -> LiveDataScreen(appState)
+                        Destination.SAVE_PORTFOLIO -> SavePortfolioScreen(appState)
+                        Destination.ALERTS -> AlertsScreen(appState)
+                        Destination.IRAN_TOOLS -> IranToolsScreen(appState)
+                        Destination.BOURSE_OPTIONS -> BourseOptionsScreen(appState)
+                        Destination.IME_LIVE -> ImeLiveScreen(appState)
+                    }
+                }
+            }
+        }
     }
 }

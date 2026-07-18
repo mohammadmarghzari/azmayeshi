@@ -1,7 +1,14 @@
 package ir.marghzari.portfolio360.ui.components
 
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,6 +24,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -29,6 +37,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
@@ -51,14 +62,25 @@ fun SectionHeader(title: String, modifier: Modifier = Modifier) {
     }
 }
 
-/** Generic card container, matching `.metric-card` / `.glass`. */
+/** Glassmorphism card container: translucent gradient fill, soft shadow, gradient edge highlight. */
 @Composable
 fun Card(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
     val colors = LocalChartColors.current
+    val shape = RoundedCornerShape(18.dp)
     Column(
         modifier = modifier
-            .background(colors.card, RoundedCornerShape(16.dp))
-            .border(1.dp, colors.plotGrid, RoundedCornerShape(16.dp))
+            .shadow(elevation = 8.dp, shape = shape, ambientColor = Color.Black.copy(alpha = 0.25f), spotColor = Color.Black.copy(alpha = 0.35f))
+            .background(
+                Brush.verticalGradient(listOf(colors.card.copy(alpha = 0.90f), colors.card.copy(alpha = 0.78f))),
+                shape,
+            )
+            .border(
+                width = 1.dp,
+                brush = Brush.linearGradient(
+                    listOf(Color.White.copy(alpha = 0.16f), colors.plotGrid.copy(alpha = 0.5f), Color.White.copy(alpha = 0.04f)),
+                ),
+                shape = shape,
+            )
             .padding(16.dp),
         content = content,
     )
@@ -207,14 +229,49 @@ fun CrashScreen(screenName: String, traceText: String, onRetry: () -> Unit) {
                 )
             }
         }
-        androidx.compose.material3.Button(
-            onClick = onRetry, modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
-            colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = colors.blueAccent),
-        ) { Text("تلاش دوباره") }
+        GlowButton(text = "تلاش دوباره", onClick = onRetry, modifier = Modifier.fillMaxWidth().padding(top = 12.dp))
     }
 }
 
 @Composable
 fun CrashScreen(screenName: String, error: Throwable, onRetry: () -> Unit) {
     CrashScreen(screenName, error.stackTraceToString(), onRetry)
+}
+
+/**
+ * Premium call-to-action button: gradient fill, press-down scale, and a hover lift on desktop
+ * (hover state is simply never triggered by touch, so it's a no-op on Android).
+ */
+@Composable
+fun GlowButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+) {
+    val colors = LocalChartColors.current
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    val hovered by interactionSource.collectIsHoveredAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) 0.96f else if (hovered) 1.02f else 1f,
+        animationSpec = tween(140, easing = FastOutSlowInEasing),
+        label = "glow-button-scale",
+    )
+    val shape = RoundedCornerShape(14.dp)
+    androidx.compose.material3.Button(
+        onClick = onClick,
+        enabled = enabled,
+        interactionSource = interactionSource,
+        shape = shape,
+        colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent, contentColor = Color.White),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 22.dp, vertical = 12.dp),
+        modifier = modifier
+            .scale(scale)
+            .hoverable(interactionSource)
+            .shadow(if (hovered) 12.dp else 6.dp, shape, ambientColor = colors.blueAccent.copy(alpha = 0.4f), spotColor = colors.blueAccent.copy(alpha = 0.5f))
+            .background(Brush.horizontalGradient(listOf(colors.blueAccent, colors.gold.copy(alpha = 0.9f))), shape),
+    ) {
+        Text(text, style = MaterialTheme.typography.labelLarge)
+    }
 }
