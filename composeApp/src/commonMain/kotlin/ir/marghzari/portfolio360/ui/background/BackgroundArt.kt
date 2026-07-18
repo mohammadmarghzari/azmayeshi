@@ -39,6 +39,7 @@ object BackgroundArt {
         Destination.SAVE_PORTFOLIO -> Res.drawable.bg_treasure_cave
         Destination.ALERTS -> Res.drawable.bg_breakthrough
         Destination.IRAN_TOOLS -> Res.drawable.bg_vortex
+        Destination.CERTIFICATES -> Res.drawable.bg_treasure_cave
         Destination.BOURSE_OPTIONS -> Res.drawable.bg_eth_power
         Destination.IME_LIVE -> Res.drawable.bg_crypto_orbit
     }

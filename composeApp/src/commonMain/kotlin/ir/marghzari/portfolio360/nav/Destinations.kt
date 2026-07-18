@@ -5,6 +5,7 @@ import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.Balance
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Dashboard
+import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Notifications
@@ -33,6 +34,7 @@ enum class Destination(val route: String, val labelFa: String, val icon: ImageVe
     SAVE_PORTFOLIO("save_portfolio", "ذخیره پرتفوی", Icons.Filled.Save),
     ALERTS("alerts", "هشدار", Icons.Filled.Notifications),
     IRAN_TOOLS("iran_tools", "ابزار ایران", Icons.Filled.Public),
+    CERTIFICATES("certificates", "گواهی سپرده کالایی", Icons.Filled.Inventory2),
     BOURSE_OPTIONS("bourse_options", "اختیار بورس کالا", Icons.Filled.AccountBalance),
     IME_LIVE("ime_live", "IME Live", Icons.Filled.SatelliteAlt),
 }

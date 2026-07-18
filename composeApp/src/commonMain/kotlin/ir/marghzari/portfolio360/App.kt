@@ -67,6 +67,7 @@ import ir.marghzari.portfolio360.ui.screens.AlertsScreen
 import ir.marghzari.portfolio360.ui.screens.BenchmarkScreen
 import ir.marghzari.portfolio360.ui.screens.BlackLittermanScreen
 import ir.marghzari.portfolio360.ui.screens.BourseOptionsScreen
+import ir.marghzari.portfolio360.ui.screens.CertificatesScreen
 import ir.marghzari.portfolio360.ui.screens.EfficientFrontierScreen
 import ir.marghzari.portfolio360.ui.screens.ImeLiveScreen
 import ir.marghzari.portfolio360.ui.screens.IranToolsScreen
@@ -230,6 +231,7 @@ private fun ScreenHost(destination: Destination, appState: AppState) {
                         Destination.SAVE_PORTFOLIO -> SavePortfolioScreen(appState)
                         Destination.ALERTS -> AlertsScreen(appState)
                         Destination.IRAN_TOOLS -> IranToolsScreen(appState)
+                        Destination.CERTIFICATES -> CertificatesScreen(appState)
                         Destination.BOURSE_OPTIONS -> BourseOptionsScreen(appState)
                         Destination.IME_LIVE -> ImeLiveScreen(appState)
                     }
