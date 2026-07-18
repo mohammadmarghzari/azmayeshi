@@ -99,7 +99,7 @@ compose.desktop {
             )
             packageName = "Portfolio360"
             packageVersion = "1.0.0"
-            description = "Portfolio360 — تحلیل پرتفوی، اختیار معامله و ابزارهای بازار ایران"
+            description = "Portfolio360 - Personal portfolio, options and Iran market analysis toolkit"
             vendor = "Marghzari"
         }
     }
