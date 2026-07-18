@@ -26,11 +26,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.DarkMode
-import androidx.compose.material.icons.filled.LightMode
-import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.Animation
-import androidx.compose.material.icons.filled.MotionPhotosOff
+import androidx.compose.material.icons.rounded.DarkMode
+import androidx.compose.material.icons.rounded.LightMode
+import androidx.compose.material.icons.rounded.Menu
+import androidx.compose.material.icons.rounded.Animation
+import androidx.compose.material.icons.rounded.MotionPhotosOff
 import androidx.compose.material3.Divider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -158,11 +158,11 @@ private fun WideLayout(appState: AppState) {
                     )
                 }
                 IconButton(onClick = { appState.isDarkTheme = !appState.isDarkTheme }, modifier = Modifier.padding(top = 12.dp)) {
-                    Icon(if (appState.isDarkTheme) Icons.Filled.LightMode else Icons.Filled.DarkMode, contentDescription = "Theme")
+                    Icon(if (appState.isDarkTheme) Icons.Rounded.LightMode else Icons.Rounded.DarkMode, contentDescription = "Theme")
                 }
                 IconButton(onClick = { appState.reducedMotion = !appState.reducedMotion }) {
                     Icon(
-                        if (appState.reducedMotion) Icons.Filled.MotionPhotosOff else Icons.Filled.Animation,
+                        if (appState.reducedMotion) Icons.Rounded.MotionPhotosOff else Icons.Rounded.Animation,
                         contentDescription = "کاهش انیمیشن",
                         tint = if (appState.reducedMotion) colors.muted else colors.blueAccent,
                     )
@@ -216,16 +216,16 @@ private fun CompactLayout(appState: AppState) {
                     title = { Text(selected.labelFa) },
                     navigationIcon = {
                         IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                            Icon(Icons.Filled.Menu, contentDescription = "Menu")
+                            Icon(Icons.Rounded.Menu, contentDescription = "Menu")
                         }
                     },
                     actions = {
                         IconButton(onClick = { appState.isDarkTheme = !appState.isDarkTheme }) {
-                            Icon(if (appState.isDarkTheme) Icons.Filled.LightMode else Icons.Filled.DarkMode, contentDescription = "Theme")
+                            Icon(if (appState.isDarkTheme) Icons.Rounded.LightMode else Icons.Rounded.DarkMode, contentDescription = "Theme")
                         }
                         IconButton(onClick = { appState.reducedMotion = !appState.reducedMotion }) {
                             Icon(
-                                if (appState.reducedMotion) Icons.Filled.MotionPhotosOff else Icons.Filled.Animation,
+                                if (appState.reducedMotion) Icons.Rounded.MotionPhotosOff else Icons.Rounded.Animation,
                                 contentDescription = "کاهش انیمیشن",
                                 tint = if (appState.reducedMotion) colors.muted else colors.blueAccent,
                             )

@@ -21,11 +21,11 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDownward
-import androidx.compose.material.icons.filled.ArrowUpward
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.StarBorder
+import androidx.compose.material.icons.rounded.ArrowDownward
+import androidx.compose.material.icons.rounded.ArrowUpward
+import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Star
+import androidx.compose.material.icons.rounded.StarBorder
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -284,7 +284,7 @@ private fun AssetHeroCard(
                     CircularProgressIndicator(modifier = Modifier.size(22.dp).padding(start = 8.dp), strokeWidth = 2.dp)
                 } else {
                     IconButton(onClick = onRefresh, modifier = Modifier.padding(start = 4.dp)) {
-                        Icon(Icons.Filled.Refresh, contentDescription = "بروزرسانی", tint = colors.muted)
+                        Icon(Icons.Rounded.Refresh, contentDescription = "بروزرسانی", tint = colors.muted)
                     }
                 }
                 IconButton(
@@ -295,7 +295,7 @@ private fun AssetHeroCard(
                     modifier = Modifier.scale(starScale.value).padding(start = 4.dp),
                 ) {
                     Icon(
-                        if (isFavorite) Icons.Filled.Star else Icons.Filled.StarBorder,
+                        if (isFavorite) Icons.Rounded.Star else Icons.Rounded.StarBorder,
                         contentDescription = "Favorite",
                         tint = if (isFavorite) colors.gold else colors.muted,
                     )
@@ -309,7 +309,7 @@ private fun AssetHeroCard(
             )
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
                 Icon(
-                    if (positive) Icons.Filled.ArrowUpward else Icons.Filled.ArrowDownward,
+                    if (positive) Icons.Rounded.ArrowUpward else Icons.Rounded.ArrowDownward,
                     contentDescription = null,
                     tint = if (positive) colors.green else colors.red,
                     modifier = Modifier.size(16.dp),

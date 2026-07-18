@@ -23,7 +23,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -207,21 +207,22 @@ fun <T> SimpleDropdown(
 ) {
     val colors = LocalChartColors.current
     var expanded by remember { mutableStateOf(false) }
+    val pillShape = RoundedCornerShape(50)
     Column(modifier = modifier.fillMaxWidth()) {
         Text(label, style = MaterialTheme.typography.labelMedium, color = colors.muted)
         Row(
             modifier = Modifier.fillMaxWidth()
                 .padding(top = 4.dp)
-                .background(colors.bg2, RoundedCornerShape(10.dp))
-                .border(1.dp, colors.plotGrid, RoundedCornerShape(10.dp))
-                .energyRing(active = true, cornerRadius = 10.dp, strokeWidth = 1.2.dp)
+                .background(colors.bg2, pillShape)
+                .border(1.dp, colors.plotGrid, pillShape)
+                .energyRing(active = true, cornerRadius = 999.dp, strokeWidth = 1.2.dp)
                 .clickable { expanded = true }
-                .padding(horizontal = 14.dp, vertical = 12.dp),
+                .padding(horizontal = 16.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(optionLabel(selected), style = MaterialTheme.typography.bodyMedium, color = colors.textPrimary)
-            Icon(Icons.Filled.ArrowDropDown, contentDescription = null, tint = colors.muted)
+            Icon(Icons.Rounded.ExpandMore, contentDescription = null, tint = colors.muted)
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             options.forEach { opt ->
@@ -292,7 +293,7 @@ fun GlowButton(
         animationSpec = tween(140, easing = FastOutSlowInEasing),
         label = "glow-button-scale",
     )
-    val shape = RoundedCornerShape(14.dp)
+    val shape = RoundedCornerShape(50)
     androidx.compose.material3.Button(
         onClick = onClick,
         enabled = enabled,
