@@ -1,18 +1,63 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+    <!-- Orbit ring ("360") -->
     <path
-        android:fillColor="#1E90FF"
-        android:pathData="M30,74 L30,50 L40,50 L40,74 Z" />
+        android:pathData="M54,54m-32,0a32,32 0,1 1,64 0a32,32 0,1 1,-64 0"
+        android:fillColor="#00000000"
+        android:strokeWidth="3.4"
+        android:strokeAlpha="0.85">
+        <aapt:attr name="android:strokeColor">
+            <gradient
+                android:type="sweep"
+                android:centerX="54"
+                android:centerY="54"
+                android:startColor="#7C5CF6"
+                android:centerColor="#4E6BF2"
+                android:endColor="#7C5CF6" />
+        </aapt:attr>
+    </path>
+    <!-- Orbit node -->
     <path
-        android:fillColor="#8A6A1A"
-        android:pathData="M46,74 L46,34 L56,34 L56,74 Z" />
+        android:pathData="M76.6,31.4m-5,0a5,5 0,1 1,10 0a5,5 0,1 1,-10 0"
+        android:fillColor="#E8E4FF" />
+    <!-- Ascending bars (portfolio growth) -->
+    <path android:pathData="M32,56L44,56L44,78L32,78Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="32" android:startY="56"
+                android:endX="44" android:endY="78"
+                android:startColor="#8F72FF"
+                android:endColor="#4E6BF2" />
+        </aapt:attr>
+    </path>
+    <path android:pathData="M48,44L60,44L60,78L48,78Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="48" android:startY="44"
+                android:endX="60" android:endY="78"
+                android:startColor="#8F72FF"
+                android:endColor="#4E6BF2" />
+        </aapt:attr>
+    </path>
+    <path android:pathData="M64,32L76,32L76,78L64,78Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="64" android:startY="32"
+                android:endX="76" android:endY="78"
+                android:startColor="#8F72FF"
+                android:endColor="#4E6BF2" />
+        </aapt:attr>
+    </path>
+    <!-- Glossy sheen -->
     <path
-        android:fillColor="#3DB87A"
-        android:pathData="M62,74 L62,44 L72,44 L72,74 Z" />
-    <path
+        android:pathData="M18,34L90,10L90,20L18,44Z"
         android:fillColor="#FFFFFF"
-        android:pathData="M78,74 L78,26 L88,26 L88,74 Z" />
+        android:fillAlpha="0.10" />
 </vector>

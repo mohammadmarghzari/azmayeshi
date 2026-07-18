@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ir.marghzari.portfolio360.ui.background.AnimatedBackground
 import ir.marghzari.portfolio360.ui.background.BackgroundArt
+import ir.marghzari.portfolio360.ui.branding.AnimatedAppIcon
 
 /** Premium animated splash shown for a couple of seconds while the app spins up. */
 @Composable
@@ -51,6 +52,8 @@ fun SplashScreen(progress: Float) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
+            AnimatedAppIcon()
+            androidx.compose.foundation.layout.Spacer(Modifier.height(18.dp))
             Text(
                 "PORTFOLIO 360",
                 fontSize = 30.sp,
