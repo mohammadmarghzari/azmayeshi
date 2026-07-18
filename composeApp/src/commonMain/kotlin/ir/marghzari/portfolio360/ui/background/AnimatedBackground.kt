@@ -21,6 +21,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import ir.marghzari.portfolio360.theme.LocalChartColors
 import kotlin.math.sin
 import kotlin.random.Random
 import org.jetbrains.compose.resources.DrawableResource
@@ -28,31 +29,35 @@ import org.jetbrains.compose.resources.painterResource
 
 private class Ember(val seedX: Float, val speed: Float, val size: Float, val phase: Float, val sway: Float)
 
-private val embers = List(24) {
+private val embers = List(18) {
     Ember(
         seedX = Random.nextFloat(),
         speed = 0.4f + Random.nextFloat() * 0.6f,
-        size = 1.3f + Random.nextFloat() * 2.4f,
+        size = 1.1f + Random.nextFloat() * 2.0f,
         phase = Random.nextFloat() * 6.28f,
         sway = 8f + Random.nextFloat() * 18f,
     )
 }
 
 /**
- * Reusable cinematic backdrop: a slow breathing/parallax image, a dark scrim + vignette so
- * foreground text always stays legible over busy artwork, and a soft drifting-ember particle
- * field. Every screen and the splash draw through this one composable so the whole app shares a
- * single motion language instead of each place reinventing it.
+ * Reusable cinematic backdrop: a slow breathing/parallax image kept behind a strong,
+ * theme-tinted scrim so it reads as a faint mood texture rather than competing with the
+ * foreground text — every existing screen was designed for solid [colors.bg], so the scrim is
+ * mixed from that same color at high opacity instead of flat black, which keeps every label,
+ * outlined field and muted caption exactly as legible as it was before the artwork was added.
+ * Every screen and the splash draw through this one composable so the whole app shares a single
+ * motion language instead of each place reinventing it.
  */
 @Composable
 fun AnimatedBackground(
     image: DrawableResource,
     modifier: Modifier = Modifier,
     intensity: Float = 1f,
-    scrimAlpha: Float = 0.74f,
+    scrimAlpha: Float = 0.90f,
     particles: Boolean = true,
     content: @Composable BoxScope.() -> Unit,
 ) {
+    val colors = LocalChartColors.current
     val transition = rememberInfiniteTransition(label = "bg-transition")
     val scale by transition.animateFloat(
         initialValue = 1.0f,
@@ -79,11 +84,12 @@ fun AnimatedBackground(
         label = "bg-time",
     )
 
-    Box(modifier = modifier.fillMaxSize().background(Color.Black)) {
+    Box(modifier = modifier.fillMaxSize().background(colors.bg)) {
         Image(
             painter = painterResource(image),
             contentDescription = null,
             contentScale = ContentScale.Crop,
+            alpha = 0.9f,
             modifier = Modifier.fillMaxSize().graphicsLayer {
                 scaleX = scale; scaleY = scale
                 translationX = driftX; translationY = driftY
@@ -93,41 +99,32 @@ fun AnimatedBackground(
             modifier = Modifier.fillMaxSize().background(
                 Brush.verticalGradient(
                     listOf(
-                        Color.Black.copy(alpha = scrimAlpha * 0.72f),
-                        Color.Black.copy(alpha = scrimAlpha * 0.90f),
-                        Color.Black.copy(alpha = scrimAlpha * 1.05f),
+                        colors.bg.copy(alpha = (scrimAlpha * 0.82f).coerceIn(0f, 1f)),
+                        colors.bg.copy(alpha = (scrimAlpha * 0.94f).coerceIn(0f, 1f)),
+                        colors.bg.copy(alpha = scrimAlpha.coerceIn(0f, 1f)),
                     ),
                 ),
             ),
         )
-        if (particles) {
-            Canvas(modifier = Modifier.fillMaxSize()) {
-                val vignette = Brush.radialGradient(
-                    colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.5f)),
-                    center = Offset(size.width / 2f, size.height * 0.4f),
-                    radius = size.maxDimension * 0.8f,
-                )
-                drawRect(vignette)
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val vignette = Brush.radialGradient(
+                colors = listOf(Color.Transparent, colors.bg.copy(alpha = 0.6f)),
+                center = Offset(size.width / 2f, size.height * 0.4f),
+                radius = size.maxDimension * 0.8f,
+            )
+            drawRect(vignette)
+            if (particles) {
                 embers.forEach { e ->
                     val t = (time * e.speed + e.phase / 6.28f) % 1f
                     val y = size.height * (1f - t)
                     val x = size.width * e.seedX + sin((t * 6.28f) + e.phase).toFloat() * e.sway
                     val twinkle = (sin(t * 6.28f * 2f + e.phase).toFloat() * 0.5f + 0.5f)
-                    val alpha = (0.10f + 0.28f * twinkle) * (1f - kotlin.math.abs(t - 0.5f) * 0.6f)
+                    val alpha = (0.08f + 0.18f * twinkle) * (1f - kotlin.math.abs(t - 0.5f) * 0.6f)
                     if (alpha > 0.01f) {
-                        drawCircle(color = Color(0xFFE8C87A), radius = e.size * 2.4f, center = Offset(x, y), alpha = (alpha * 0.3f).coerceIn(0f, 1f))
+                        drawCircle(color = Color(0xFFE8C87A), radius = e.size * 2.4f, center = Offset(x, y), alpha = (alpha * 0.25f).coerceIn(0f, 1f))
                         drawCircle(color = Color(0xFFF4E4B0), radius = e.size, center = Offset(x, y), alpha = alpha.coerceIn(0f, 1f))
                     }
                 }
-            }
-        } else {
-            Canvas(modifier = Modifier.fillMaxSize()) {
-                val vignette = Brush.radialGradient(
-                    colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.5f)),
-                    center = Offset(size.width / 2f, size.height * 0.4f),
-                    radius = size.maxDimension * 0.8f,
-                )
-                drawRect(vignette)
             }
         }
         content()

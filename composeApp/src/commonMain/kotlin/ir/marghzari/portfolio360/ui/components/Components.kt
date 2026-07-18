@@ -54,7 +54,14 @@ fun SectionHeader(title: String, modifier: Modifier = Modifier) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Text(title, style = MaterialTheme.typography.titleSmall, color = colors.accent)
+        Text(
+            title,
+            style = MaterialTheme.typography.titleSmall,
+            color = colors.textPrimary,
+            modifier = Modifier
+                .background(colors.bg2.copy(alpha = 0.92f), RoundedCornerShape(8.dp))
+                .padding(horizontal = 10.dp, vertical = 5.dp),
+        )
         Box(
             modifier = Modifier.weight(1f).height(1.dp)
                 .background(colors.plotGrid),
@@ -71,7 +78,7 @@ fun Card(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> U
         modifier = modifier
             .shadow(elevation = 8.dp, shape = shape, ambientColor = Color.Black.copy(alpha = 0.25f), spotColor = Color.Black.copy(alpha = 0.35f))
             .background(
-                Brush.verticalGradient(listOf(colors.card.copy(alpha = 0.90f), colors.card.copy(alpha = 0.78f))),
+                Brush.verticalGradient(listOf(colors.card.copy(alpha = 0.97f), colors.card.copy(alpha = 0.92f))),
                 shape,
             )
             .border(
