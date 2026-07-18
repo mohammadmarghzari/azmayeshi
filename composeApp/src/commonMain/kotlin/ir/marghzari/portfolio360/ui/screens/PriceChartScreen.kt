@@ -8,7 +8,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -24,6 +23,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -33,8 +33,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
-import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -118,20 +117,15 @@ fun PriceChartScreen(appState: AppState) {
     val periodReturnPct = if (closes.isNotEmpty() && closes.first() != 0.0) (closes.last() / closes.first() - 1) * 100 else 0.0
     val weightPct = appState.weights?.let { w -> prices.tickers.indexOf(selectedTicker).takeIf { it in w.indices }?.let { w[it] * 100 } }
 
-    val pullState = rememberPullToRefreshState()
+    fun refresh() {
+        scope.launch {
+            isRefreshing = true
+            refreshed = appState.yahoo.fetchHistory(selectedTicker, "max", ttlMs = 0)
+            isRefreshing = false
+        }
+    }
 
-    PullToRefreshBox(
-        isRefreshing = isRefreshing,
-        onRefresh = {
-            scope.launch {
-                isRefreshing = true
-                refreshed = appState.yahoo.fetchHistory(selectedTicker, "max", ttlMs = 0)
-                isRefreshing = false
-            }
-        },
-        state = pullState,
-        modifier = Modifier.fillMaxSize(),
-    ) {
+    Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxWidth()) {
             item {
                 AssetHeroCard(
@@ -145,6 +139,8 @@ fun PriceChartScreen(appState: AppState) {
                             appState.favoriteTickers + selectedTicker
                         }
                     },
+                    isRefreshing = isRefreshing,
+                    onRefresh = { refresh() },
                 )
             }
 
@@ -252,6 +248,8 @@ private fun AssetHeroCard(
     changePct: Double,
     isFavorite: Boolean,
     onToggleFavorite: () -> Unit,
+    isRefreshing: Boolean,
+    onRefresh: () -> Unit,
 ) {
     val colors = LocalChartColors.current
     val positive = change >= 0
@@ -282,12 +280,19 @@ private fun AssetHeroCard(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 SimpleDropdown("دارایی", selected, tickers, { it }, onSelect, modifier = Modifier.weight(1f))
+                if (isRefreshing) {
+                    CircularProgressIndicator(modifier = Modifier.size(22.dp).padding(start = 8.dp), strokeWidth = 2.dp)
+                } else {
+                    IconButton(onClick = onRefresh, modifier = Modifier.padding(start = 4.dp)) {
+                        Icon(Icons.Filled.Refresh, contentDescription = "بروزرسانی", tint = colors.muted)
+                    }
+                }
                 IconButton(
                     onClick = {
                         onToggleFavorite()
                         scope.launch { starScale.animateTo(1.35f, tween(120)); starScale.animateTo(1f, tween(150)) }
                     },
-                    modifier = Modifier.scale(starScale.value).padding(start = 8.dp),
+                    modifier = Modifier.scale(starScale.value).padding(start = 4.dp),
                 ) {
                     Icon(
                         if (isFavorite) Icons.Filled.Star else Icons.Filled.StarBorder,
@@ -367,16 +372,10 @@ private fun AssetLineChart(dates: List<LocalDate>, closes: List<Double>, positiv
         Canvas(
             modifier = Modifier.fillMaxSize()
                 .pointerInput(dates, closes) {
-                    detectTapGestures(
-                        onPress = { offset ->
-                            crosshairIndex = ((offset.x / size.width) * (closes.size - 1)).toInt().coerceIn(0, closes.size - 1)
-                            tryAwaitRelease()
-                            crosshairIndex = null
-                        },
-                    )
-                }
-                .pointerInput(dates, closes) {
                     detectDragGestures(
+                        onDragStart = { pos ->
+                            crosshairIndex = ((pos.x / size.width) * (closes.size - 1)).toInt().coerceIn(0, closes.size - 1)
+                        },
                         onDrag = { change, _ ->
                             crosshairIndex = ((change.position.x / size.width) * (closes.size - 1)).toInt().coerceIn(0, closes.size - 1)
                         },
