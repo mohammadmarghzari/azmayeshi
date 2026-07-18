@@ -283,6 +283,8 @@ fun GlowButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    loading: Boolean = false,
+    gradient: List<Color>? = null,
 ) {
     val colors = LocalChartColors.current
     val interactionSource = remember { MutableInteractionSource() }
@@ -294,9 +296,10 @@ fun GlowButton(
         label = "glow-button-scale",
     )
     val shape = RoundedCornerShape(50)
+    val glowColors = gradient ?: listOf(colors.blueAccent, colors.gold.copy(alpha = 0.9f))
     androidx.compose.material3.Button(
         onClick = onClick,
-        enabled = enabled,
+        enabled = enabled && !loading,
         interactionSource = interactionSource,
         shape = shape,
         colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent, contentColor = Color.White),
@@ -305,8 +308,14 @@ fun GlowButton(
             .scale(scale)
             .hoverable(interactionSource)
             .shadow(if (hovered) 12.dp else 6.dp, shape, ambientColor = colors.blueAccent.copy(alpha = 0.4f), spotColor = colors.blueAccent.copy(alpha = 0.5f))
-            .background(Brush.horizontalGradient(listOf(colors.blueAccent, colors.gold.copy(alpha = 0.9f))), shape),
+            .background(Brush.horizontalGradient(glowColors), shape),
     ) {
-        Text(text, style = MaterialTheme.typography.labelLarge)
+        if (loading) {
+            androidx.compose.material3.CircularProgressIndicator(
+                modifier = Modifier.width(16.dp).height(16.dp), color = Color.White, strokeWidth = 2.dp,
+            )
+        } else {
+            Text(text, style = MaterialTheme.typography.labelLarge)
+        }
     }
 }

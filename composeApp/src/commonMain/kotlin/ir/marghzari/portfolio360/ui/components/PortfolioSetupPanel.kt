@@ -9,9 +9,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
@@ -118,7 +115,8 @@ fun PortfolioSetupPanel(appState: AppState, modifier: Modifier = Modifier) {
             }
         }
 
-        Button(
+        GlowButton(
+            text = "↓  دریافت داده از Yahoo Finance",
             onClick = {
                 scope.launch {
                     appState.isFetching = true
@@ -139,16 +137,11 @@ fun PortfolioSetupPanel(appState: AppState, modifier: Modifier = Modifier) {
                     }
                 }
             },
-            enabled = appState.selectedTickers.size >= 2 && !appState.isFetching,
+            enabled = appState.selectedTickers.size >= 2,
+            loading = appState.isFetching,
+            gradient = listOf(colors.blueAccent, colors.blueAccent.copy(alpha = 0.75f)),
             modifier = Modifier.fillMaxWidth().padding(top = 14.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = colors.blueAccent),
-        ) {
-            if (appState.isFetching) {
-                CircularProgressIndicator(modifier = Modifier.width(16.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
-            } else {
-                Text("↓  دریافت داده از Yahoo Finance")
-            }
-        }
+        )
         if (appState.selectedTickers.size < 2) {
             Text("⚠ حداقل ۲ نماد برای محاسبه پرتفوی لازم است", style = MaterialTheme.typography.labelSmall, color = colors.gold, modifier = Modifier.padding(top = 6.dp))
         }
@@ -165,9 +158,10 @@ fun PortfolioSetupPanel(appState: AppState, modifier: Modifier = Modifier) {
             optionLabel = { it.faLabel }, onSelected = { appState.portfolioStyle = it },
         )
 
-        Button(
+        GlowButton(
+            text = "▶  محاسبه پرتفوی",
             onClick = {
-                val prices = appState.prices ?: return@Button
+                val prices = appState.prices ?: return@GlowButton
                 scope.launch {
                     appState.isCalculating = true
                     try {
@@ -186,16 +180,11 @@ fun PortfolioSetupPanel(appState: AppState, modifier: Modifier = Modifier) {
                     }
                 }
             },
-            enabled = appState.prices != null && appState.prices!!.nAssets >= 2 && !appState.isCalculating,
+            enabled = appState.prices != null && appState.prices!!.nAssets >= 2,
+            loading = appState.isCalculating,
+            gradient = listOf(colors.gold, colors.gold.copy(alpha = 0.75f)),
             modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = colors.gold),
-        ) {
-            if (appState.isCalculating) {
-                CircularProgressIndicator(modifier = Modifier.width(16.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
-            } else {
-                Text("▶  محاسبه پرتفوی")
-            }
-        }
+        )
     }
 }
 
