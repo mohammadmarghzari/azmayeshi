@@ -9,9 +9,11 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
@@ -171,4 +173,48 @@ fun <T> SimpleDropdown(
             }
         }
     }
+}
+
+/**
+ * Shown instead of letting an uncaught exception crash the app silently. The full stack trace
+ * text is selectable so it can be copied/screenshotted and reported.
+ */
+@Composable
+fun CrashScreen(screenName: String, traceText: String, onRetry: () -> Unit) {
+    val colors = LocalChartColors.current
+    Column(
+        modifier = Modifier.fillMaxWidth()
+            .background(colors.red.copy(alpha = 0.06f), RoundedCornerShape(16.dp))
+            .padding(18.dp),
+    ) {
+        Text("⚠ خطا در $screenName", style = MaterialTheme.typography.titleMedium, color = colors.red)
+        Text(
+            "برنامه با خطا مواجه شد. لطفاً از متن زیر اسکرین‌شات بگیرید و بفرستید تا برطرف شود.",
+            style = MaterialTheme.typography.bodySmall, color = colors.muted, modifier = Modifier.padding(top = 6.dp, bottom = 12.dp),
+        )
+        androidx.compose.foundation.text.selection.SelectionContainer {
+            Column(
+                modifier = Modifier.fillMaxWidth()
+                    .heightIn(max = 420.dp)
+                    .verticalScroll(androidx.compose.foundation.rememberScrollState())
+                    .background(colors.bg2, RoundedCornerShape(10.dp))
+                    .padding(12.dp),
+            ) {
+                Text(
+                    traceText,
+                    style = MaterialTheme.typography.labelSmall.copy(fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace),
+                    color = colors.textPrimary,
+                )
+            }
+        }
+        androidx.compose.material3.Button(
+            onClick = onRetry, modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+            colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = colors.blueAccent),
+        ) { Text("تلاش دوباره") }
+    }
+}
+
+@Composable
+fun CrashScreen(screenName: String, error: Throwable, onRetry: () -> Unit) {
+    CrashScreen(screenName, error.stackTraceToString(), onRetry)
 }

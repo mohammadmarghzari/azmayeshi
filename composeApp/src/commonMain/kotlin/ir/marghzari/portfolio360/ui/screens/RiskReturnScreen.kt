@@ -168,6 +168,7 @@ fun RiskReturnScreen(appState: AppState) {
         item {
             SectionHeader("Daily Return Distribution")
             val portRet = Stats.portfolioReturns(hedgedReturns ?: returns, weights).map { it * 100 }
+            if (portRet.isEmpty()) return@item
             val bins = 30
             val min = portRet.min(); val max = portRet.max()
             val width = ((max - min) / bins).takeIf { it > 0 } ?: 1.0
