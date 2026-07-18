@@ -1,19 +1,77 @@
+# Portfolio360 (پورتفولیو ۳۶۰)
 
-# Monte Carlo Portfolio Simulator (تحلیل پرتفو با روش مونت‌کارلو)
+اپلیکیشن شخصی تحلیل پرتفوی، اختیار معامله و ابزارهای بازار ایران — نسخه بازنویسی‌شده با **Kotlin Multiplatform + Compose Multiplatform**، برای **دسکتاپ (ویندوز/مک/لینوکس)** و **اندروید**، از روی نسخه اولیه‌ی Python/Streamlit همین پروژه (`app.py`).
 
-این ابزار به کاربر اجازه می‌دهد پرتفویی متشکل از چند دارایی با هدف ریسک ۳۰٪ و بازده بهینه ایجاد کند.
+> این یک اپ کاملاً شخصی است و برای ارائه‌ی عمومی در نظر گرفته نشده.
 
-## ویژگی‌ها
-- انتخاب چند دارایی توسط کاربر (با بارگذاری CSV)
-- محاسبه بازده مورد انتظار، ریسک و نسبت شارپ
-- نمودار سود/زیان پورتفو در برابر تغییر قیمت دارایی‌ها
+## امکانات
 
-## نحوه استفاده
-1. فایل‌های CSV قیمت تاریخی دارایی‌ها را بارگذاری کنید (ستون `Adj Close` الزامی است).
-2. نتایج محاسباتی و نمودار را مشاهده کنید.
+همه‌ی ۱۶ بخش نسخه‌ی پایتون، با UI حرفه‌ای Compose و نمودارهای اختصاصی (Canvas-based) پیاده‌سازی شده‌اند:
 
-## اجرا از طریق Streamlit Cloud
-1. پروژه را در GitHub قرار دهید
-2. از طریق [https://streamlit.io/cloud](https://streamlit.io/cloud) اجرا کنید
+- **تخصیص پرتفوی** — بهینه‌سازی با ۶ روش (بیشترین شارپ، کمترین واریانس، مونت‌کارلو/CVaR، وزن برابر، ریسک پاریتی، بشکه‌ای طالب)، Pie و Treemap
+- **ریسک و بازده** — Sharpe، Calmar، CVaR، Max Drawdown، Underwater chart، هج با Protective Put
+- **نمودار قیمت** و ماتریس همبستگی
+- **مقایسه سبک‌ها** — مقایسه هر ۶ روش تخصیص در کنار هم
+- **Efficient Frontier** — شبیه‌سازی ۱۵۰۰ پرتفوی تصادفی + مرز کارایی + Rolling Sharpe
+- **اختیار پیشرفته** — Covered Call، Protective Put، Iron Condor، Rolling Covered Call
+- **Black-Litterman** — دیدگاه‌های شخصی + Factor Exposure
+- **Stress Test & Monte Carlo** — بازپخش ۶ بحران تاریخی + شبیه‌سازی ۴۰۰ مسیر آینده
+- **ری‌بالانس** و تشخیص رژیم همبستگی بازار
+- **Benchmark** — مقایسه با SPY/QQQ/BTC/... (آلفا، بتا، Tracking Error)
+- **داده زنده** — شاخص Fear & Greed، اخبار Yahoo Finance، Seasonality
+- **ذخیره پرتفوی**، **هشدار قیمت/Fear&Greed**
+- **ابزار ایران** — نرخ واقعی دلار (تورم/طلا)، حباب گواهی سپرده کالایی، P&L هدف قیمتی
+- **اختیار بورس کالا** — قیمت‌گذاری Black-Scholes، IV Solver، ۶ استراتژی ترکیبی، Option Chain، چک‌لیست معامله
+- **IME Live** — تابلوی زنده گواهی سپرده کالایی، دفتر سفارشات، نمودار شمعی، رادار مقایسه، تحلیل‌گر سیگنال
 
-ساخته شده با ❤️ توسط محمد مرغزاری
+## معماری پروژه
+
+```
+core/          ماژول Kotlin/JVM خالص — تمام فرمول‌های مالی + شبکه (بدون UI)
+  math/        بهینه‌سازی پرتفوی، Black-Scholes، Black-Litterman، Monte Carlo، ...
+  network/     کلاینت‌های Ktor برای Yahoo Finance، CNN Fear&Greed، RSS اخبار، IME API
+  model/       مدل‌های داده مشترک
+composeApp/    اپ Kotlin Multiplatform (Compose) — کد UI مشترک بین دسکتاپ و اندروید
+  commonMain/  تم، نمودارهای اختصاصی (Canvas)، ۱۶ صفحه، ناوبری تطبیقی
+  androidMain/ نقطه‌ورود اندروید (MainActivity)
+  desktopMain/ نقطه‌ورود دسکتاپ (Compose Desktop window)
+```
+
+فایل‌های نسخه‌ی اصلی پایتون (`app.py`, `options/`, `assets/`, `requirements.txt`) دست‌نخورده باقی مانده‌اند تا به‌عنوان مرجع در دسترس باشند؛ توسعه‌ی آینده روی نسخه‌ی Kotlin ادامه پیدا می‌کند.
+
+## اجرا روی دسکتاپ
+
+```bash
+./gradlew :composeApp:run
+```
+
+برای ساخت نصب‌کننده‌ی بومی (dmg/msi/deb):
+
+```bash
+./gradlew :composeApp:createDistributable
+```
+
+## اجرا روی اندروید
+
+پروژه را در **Android Studio** باز کنید و روی یک دستگاه/شبیه‌ساز اجرا کنید، یا از خط فرمان:
+
+```bash
+./gradlew :composeApp:assembleDebug
+```
+
+فایل APK در `composeApp/build/outputs/apk/debug/` ساخته می‌شود.
+
+> ساخت اندروید نیازمند دسترسی شبکه به Google Maven است (`google()`)؛ در محیط‌های محدود (مثل سندباکس این توسعه) این مرحله در GitHub Actions به‌صورت خودکار تست می‌شود (`.github/workflows/build.yml`).
+
+## تست ماژول اصلی
+
+```bash
+./gradlew :core:test
+```
+
+## پشته فناوری
+
+Kotlin 2.0 · Compose Multiplatform 1.7 · Ktor Client (CIO) · kotlinx.coroutines / serialization / datetime
+
+---
+ساخته شده با ❤️ توسط محمد مرغزاری — بازنویسی‌شده با Claude
