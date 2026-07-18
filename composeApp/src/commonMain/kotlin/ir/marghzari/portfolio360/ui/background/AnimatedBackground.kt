@@ -14,13 +14,17 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.haze
 import ir.marghzari.portfolio360.theme.LocalChartColors
 import kotlin.math.sin
 import kotlin.random.Random
@@ -58,6 +62,7 @@ fun AnimatedBackground(
     content: @Composable BoxScope.() -> Unit,
 ) {
     val colors = LocalChartColors.current
+    val hazeState = remember { HazeState() }
     val transition = rememberInfiniteTransition(label = "bg-transition")
     val scale by transition.animateFloat(
         initialValue = 1.0f,
@@ -93,7 +98,7 @@ fun AnimatedBackground(
             modifier = Modifier.fillMaxSize().graphicsLayer {
                 scaleX = scale; scaleY = scale
                 translationX = driftX; translationY = driftY
-            },
+            }.haze(hazeState),
         )
         Box(
             modifier = Modifier.fillMaxSize().background(
@@ -127,6 +132,8 @@ fun AnimatedBackground(
                 }
             }
         }
-        content()
+        CompositionLocalProvider(LocalHazeState provides hazeState) {
+            content()
+        }
     }
 }

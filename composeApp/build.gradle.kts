@@ -41,6 +41,8 @@ kotlin {
                 implementation(libs.kotlinx.coroutines.core)
                 implementation(libs.kotlinx.datetime)
                 implementation(libs.kotlinx.serialization.json)
+
+                implementation(libs.haze)
             }
         }
         val androidMain by getting {

@@ -43,7 +43,10 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import dev.chrisbanes.haze.HazeDefaults
+import dev.chrisbanes.haze.hazeChild
 import ir.marghzari.portfolio360.theme.LocalChartColors
+import ir.marghzari.portfolio360.ui.background.LocalHazeState
 import ir.marghzari.portfolio360.ui.motion.energyRing
 import ir.marghzari.portfolio360.ui.motion.floatingMotion
 import ir.marghzari.portfolio360.ui.motion.orbitParticles
@@ -96,14 +99,32 @@ fun Card(
     val shape = RoundedCornerShape(18.dp)
     val motionSeed = remember { Random.nextInt() }
     val particleColors = motionColors ?: DEFAULT_MOTION_COLORS
+    val hazeState = LocalHazeState.current
     Column(
         modifier = modifier
             .floatingMotion(seed = motionSeed)
             .tilt3D()
             .shadow(elevation = 8.dp, shape = shape, ambientColor = Color.Black.copy(alpha = 0.25f), spotColor = Color.Black.copy(alpha = 0.35f))
-            .background(
-                Brush.verticalGradient(listOf(colors.card.copy(alpha = 0.97f), colors.card.copy(alpha = 0.92f))),
-                shape,
+            .then(
+                if (hazeState != null) {
+                    // True frosted glass: blur a genuine glimpse of the artwork behind the card
+                    // instead of a flat translucent tint, matching the requested "frosted/clear" look.
+                    Modifier.hazeChild(
+                        state = hazeState,
+                        shape = shape,
+                        style = HazeDefaults.style(
+                            backgroundColor = colors.card,
+                            tint = colors.card.copy(alpha = 0.55f),
+                            blurRadius = 20.dp,
+                            noiseFactor = 0.15f,
+                        ),
+                    )
+                } else {
+                    Modifier.background(
+                        Brush.verticalGradient(listOf(colors.card.copy(alpha = 0.97f), colors.card.copy(alpha = 0.92f))),
+                        shape,
+                    )
+                },
             )
             .border(
                 width = 1.dp,
