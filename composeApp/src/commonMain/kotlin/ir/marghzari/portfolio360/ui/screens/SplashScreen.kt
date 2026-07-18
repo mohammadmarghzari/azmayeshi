@@ -59,7 +59,7 @@ fun SplashScreen(progress: Float) {
                 fontSize = 30.sp,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 4.sp,
-                color = Color(0xFFF4E4B0).copy(alpha = glow),
+                color = Color(0xFF5DD62C).copy(alpha = glow),
                 modifier = Modifier.scale(0.92f + entrance * 0.08f),
             )
             androidx.compose.foundation.layout.Spacer(Modifier.height(12.dp))
@@ -73,7 +73,7 @@ fun SplashScreen(progress: Float) {
             LinearProgressIndicator(
                 progress = progress,
                 modifier = Modifier.fillMaxWidth(0.55f).height(3.dp),
-                color = Color(0xFFE8C87A),
+                color = Color(0xFF5DD62C),
                 trackColor = Color.White.copy(alpha = 0.12f),
             )
         }

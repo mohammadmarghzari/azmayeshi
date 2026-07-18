@@ -11,9 +11,9 @@
                 android:centerX="54"
                 android:centerY="46"
                 android:gradientRadius="80"
-                android:startColor="#2E3372"
-                android:centerColor="#20244A"
-                android:endColor="#14172E" />
+                android:startColor="#202020"
+                android:centerColor="#0F0F0F"
+                android:endColor="#000000" />
         </aapt:attr>
     </path>
     <!-- Soft glow behind the glyph -->
@@ -26,7 +26,7 @@
                 android:centerX="54"
                 android:centerY="50"
                 android:gradientRadius="38"
-                android:startColor="#7C5CF6"
+                android:startColor="#5DD62C"
                 android:endColor="#00000000" />
         </aapt:attr>
     </path>

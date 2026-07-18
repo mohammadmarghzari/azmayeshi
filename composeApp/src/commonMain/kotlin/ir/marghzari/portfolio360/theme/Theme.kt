@@ -26,27 +26,34 @@ data class BlueprintColors(
     val isDark: Boolean,
 )
 
+/** Brand palette: near-black + neon green, per the user's reference (Oscillate Marketing card). */
+private val NEON_GREEN = Color(0xFF5DD62C)
+private val DEEP_GREEN = Color(0xFF337418)
+private val NEAR_BLACK = Color(0xFF0F0F0F)
+private val CARD_DARK = Color(0xFF202020)
+private val OFF_WHITE = Color(0xFFF8F8F8)
+
 val LightBlueprint = BlueprintColors(
-    bg = Color(0xFFF0F0ED), bg2 = Color(0xFFE8E8E4), panel = Color(0xFFDDDDD8), card = Color(0xFFE4E4E0),
+    bg = OFF_WHITE, bg2 = Color(0xFFECECEC), panel = Color(0xFFE0E0E0), card = Color(0xFFEFEFEF),
     accent = Color(0xFF1A1A18), accent2 = Color(0xFF555550), gold = Color(0xFF8A6A1A),
-    green = Color(0xFF1A6640), red = Color(0xFF8A2020),
+    green = DEEP_GREEN, red = Color(0xFF8A2020),
     textPrimary = Color(0xFF111110), silver = Color(0xFF444440), muted = Color(0xFF888882),
-    sidebarBg = Color(0xFFE0E0DB),
-    plotBg = Color(0xFFE8E8E4), plotGrid = Color(0x1A3C3C37), plotTick = Color(0xFF444440), plotText = Color(0xFF222220),
+    sidebarBg = Color(0xFFE6E6E6),
+    plotBg = Color(0xFFECECEC), plotGrid = Color(0x1A3C3C37), plotTick = Color(0xFF444440), plotText = Color(0xFF222220),
     riskGeo = Color(0xFF7A3A00), riskMon = Color(0xFF1A4A7A), riskSys = Color(0xFF4A1A6A),
-    blueAccent = Color(0xFF5B9BD5),
+    blueAccent = NEON_GREEN,
     isDark = false,
 )
 
 val DarkBlueprint = BlueprintColors(
-    bg = Color(0xFF111111), bg2 = Color(0xFF181818), panel = Color(0xFF1E1E1E), card = Color(0xFF222222),
+    bg = NEAR_BLACK, bg2 = Color(0xFF161616), panel = Color(0xFF1A1A1A), card = CARD_DARK,
     accent = Color(0xFFB0B0B0), accent2 = Color(0xFF888888), gold = Color(0xFFC8A84B),
-    green = Color(0xFF5AAA78), red = Color(0xFFCC5555),
-    textPrimary = Color(0xFFD4D4D4), silver = Color(0xFF909090), muted = Color(0xFF555555),
-    sidebarBg = Color(0xFF0E0E0E),
+    green = NEON_GREEN, red = Color(0xFFCC5555),
+    textPrimary = OFF_WHITE, silver = Color(0xFF909090), muted = Color(0xFF666666),
+    sidebarBg = NEAR_BLACK,
     plotBg = Color(0xFF161616), plotGrid = Color(0x0DFFFFFF), plotTick = Color(0xFF888888), plotText = Color(0xFFC0C0C0),
     riskGeo = Color(0xFFE8945A), riskMon = Color(0xFF5A9BE8), riskSys = Color(0xFFB07AD4),
-    blueAccent = Color(0xFF5B9BD5),
+    blueAccent = NEON_GREEN,
     isDark = true,
 )
 

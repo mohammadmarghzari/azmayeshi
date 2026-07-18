@@ -20,9 +20,9 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.unit.dp
 
-private val PORTFOLIO_PURPLE = Color(0xFF7C5CF6)
-private val PORTFOLIO_BLUE = Color(0xFF4E6BF2)
-private val PORTFOLIO_DARK = Color(0xFF20244A)
+private val PORTFOLIO_GREEN_BRIGHT = Color(0xFF5DD62C)
+private val PORTFOLIO_GREEN_DARK = Color(0xFF337418)
+private val PORTFOLIO_DARK = Color(0xFF0F0F0F)
 
 /**
  * A Compose-native (lightweight, GPU-composited) animated take on the launcher glyph — a slowly
@@ -58,7 +58,7 @@ fun AnimatedAppIcon(modifier: Modifier = Modifier, size: androidx.compose.ui.uni
         // Background glow.
         drawCircle(
             brush = Brush.radialGradient(
-                listOf(PORTFOLIO_PURPLE.copy(alpha = 0.35f * glow), Color.Transparent),
+                listOf(PORTFOLIO_GREEN_BRIGHT.copy(alpha = 0.35f * glow), Color.Transparent),
                 center = Offset(cx, cy * 0.9f),
                 radius = ringRadius * 1.8f,
             ),
@@ -69,7 +69,7 @@ fun AnimatedAppIcon(modifier: Modifier = Modifier, size: androidx.compose.ui.uni
         rotate(degrees = rotation, pivot = Offset(cx, cy)) {
             drawCircle(
                 brush = Brush.sweepGradient(
-                    listOf(PORTFOLIO_PURPLE, PORTFOLIO_BLUE, PORTFOLIO_PURPLE),
+                    listOf(PORTFOLIO_GREEN_BRIGHT, PORTFOLIO_GREEN_DARK, PORTFOLIO_GREEN_BRIGHT),
                     center = Offset(cx, cy),
                 ),
                 radius = ringRadius,
@@ -95,7 +95,7 @@ fun AnimatedAppIcon(modifier: Modifier = Modifier, size: androidx.compose.ui.uni
             val left = startX + i * (barWidth + gap)
             drawRect(
                 brush = Brush.verticalGradient(
-                    listOf(PORTFOLIO_PURPLE.copy(alpha = 0.95f), PORTFOLIO_BLUE),
+                    listOf(PORTFOLIO_GREEN_BRIGHT.copy(alpha = 0.95f), PORTFOLIO_GREEN_DARK),
                     startY = baseline - animatedH, endY = baseline,
                 ),
                 topLeft = Offset(left, baseline - animatedH),

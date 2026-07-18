@@ -74,7 +74,7 @@ fun SectionHeader(title: String, modifier: Modifier = Modifier) {
     }
 }
 
-private val DEFAULT_MOTION_COLORS = listOf(Color(0xFF7C5CF6), Color(0xFF4E6BF2))
+private val DEFAULT_MOTION_COLORS = listOf(Color(0xFF5DD62C), Color(0xFF337418))
 
 /**
  * Glassmorphism card container: translucent gradient fill, soft shadow, gradient edge highlight,
@@ -83,7 +83,7 @@ private val DEFAULT_MOTION_COLORS = listOf(Color(0xFF7C5CF6), Color(0xFF4E6BF2))
  * Set [highlighted] on the one "hero" card per screen (a selected asset, a focused summary) to add
  * the rotating energy ring; leave it off elsewhere so the ring stays a meaningful signal.
  * [motionColors] lets a caller theme the particles/ring (e.g. gold/silver/copper for a commodity
- * card via `motionColorsFor`); defaults to the app's purple/blue crypto glow.
+ * card via `motionColorsFor`); defaults to the app's neon-green brand glow.
  */
 @Composable
 fun Card(

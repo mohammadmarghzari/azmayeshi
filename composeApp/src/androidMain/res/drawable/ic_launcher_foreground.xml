@@ -15,15 +15,15 @@
                 android:type="sweep"
                 android:centerX="54"
                 android:centerY="54"
-                android:startColor="#7C5CF6"
-                android:centerColor="#4E6BF2"
-                android:endColor="#7C5CF6" />
+                android:startColor="#5DD62C"
+                android:centerColor="#337418"
+                android:endColor="#5DD62C" />
         </aapt:attr>
     </path>
     <!-- Orbit node -->
     <path
         android:pathData="M76.6,31.4m-5,0a5,5 0,1 1,10 0a5,5 0,1 1,-10 0"
-        android:fillColor="#E8E4FF" />
+        android:fillColor="#EAFBDD" />
     <!-- Ascending bars (portfolio growth) -->
     <path android:pathData="M32,56L44,56L44,78L32,78Z">
         <aapt:attr name="android:fillColor">
@@ -31,8 +31,8 @@
                 android:type="linear"
                 android:startX="32" android:startY="56"
                 android:endX="44" android:endY="78"
-                android:startColor="#8F72FF"
-                android:endColor="#4E6BF2" />
+                android:startColor="#7FE854"
+                android:endColor="#337418" />
         </aapt:attr>
     </path>
     <path android:pathData="M48,44L60,44L60,78L48,78Z">
@@ -41,8 +41,8 @@
                 android:type="linear"
                 android:startX="48" android:startY="44"
                 android:endX="60" android:endY="78"
-                android:startColor="#8F72FF"
-                android:endColor="#4E6BF2" />
+                android:startColor="#7FE854"
+                android:endColor="#337418" />
         </aapt:attr>
     </path>
     <path android:pathData="M64,32L76,32L76,78L64,78Z">
@@ -51,8 +51,8 @@
                 android:type="linear"
                 android:startX="64" android:startY="32"
                 android:endX="76" android:endY="78"
-                android:startColor="#8F72FF"
-                android:endColor="#4E6BF2" />
+                android:startColor="#7FE854"
+                android:endColor="#337418" />
         </aapt:attr>
     </path>
     <!-- Glossy sheen -->
