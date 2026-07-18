@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import ir.marghzari.portfolio360.theme.Portfolio360Theme
+import ir.marghzari.portfolio360.ui.branding.InstallDeviceTiltSensor
 import ir.marghzari.portfolio360.ui.components.CrashScreen
 import kotlin.system.exitProcess
 
@@ -56,6 +57,7 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             } else {
+                InstallDeviceTiltSensor()
                 App()
             }
         }

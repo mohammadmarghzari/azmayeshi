@@ -61,6 +61,7 @@ import ir.marghzari.portfolio360.theme.LocalChartColors
 import ir.marghzari.portfolio360.theme.Portfolio360Theme
 import ir.marghzari.portfolio360.ui.background.AnimatedBackground
 import ir.marghzari.portfolio360.ui.background.BackgroundArt
+import ir.marghzari.portfolio360.ui.branding.PremiumIconMotion
 import ir.marghzari.portfolio360.ui.screens.AllocationScreen
 import ir.marghzari.portfolio360.ui.screens.AdvancedOptionsScreen
 import ir.marghzari.portfolio360.ui.screens.AlertsScreen
@@ -134,7 +135,12 @@ private fun WideLayout(appState: AppState) {
                     NavigationRailItem(
                         selected = dest == selected,
                         onClick = { selected = dest },
-                        icon = { Icon(dest.icon, contentDescription = dest.labelFa) },
+                        icon = {
+                            PremiumIconMotion(
+                                icon = dest.icon, contentDescription = dest.labelFa, active = dest == selected,
+                                tint = if (dest == selected) colors.blueAccent else colors.muted,
+                            )
+                        },
                         label = { Text(dest.labelFa, style = MaterialTheme.typography.labelSmall) },
                     )
                 }
@@ -170,7 +176,12 @@ private fun CompactLayout(appState: AppState) {
                         NavigationDrawerItem(
                             label = { Text(dest.labelFa) },
                             selected = dest == selected,
-                            icon = { Icon(dest.icon, contentDescription = null) },
+                            icon = {
+                                PremiumIconMotion(
+                                    icon = dest.icon, contentDescription = null, active = dest == selected,
+                                    tint = if (dest == selected) colors.blueAccent else colors.muted,
+                                )
+                            },
                             onClick = { selected = dest; scope.launch { drawerState.close() } },
                             modifier = Modifier.padding(horizontal = 8.dp),
                         )
