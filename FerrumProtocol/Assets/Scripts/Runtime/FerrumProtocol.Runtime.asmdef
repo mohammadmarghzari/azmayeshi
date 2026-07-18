@@ -1,0 +1,19 @@
+{
+    "name": "FerrumProtocol.Runtime",
+    "rootNamespace": "FerrumProtocol",
+    "references": [
+        "Unity.InputSystem",
+        "Unity.AI.Navigation",
+        "Unity.TextMeshPro",
+        "Mirror"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

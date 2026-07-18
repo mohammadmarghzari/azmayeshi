@@ -1,0 +1,42 @@
+# Unity generated folders
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+[Mm]emoryCaptures/
+
+# Editor/tooling artifacts
+.vs/
+.vscode/
+.idea/
+*.csproj
+*.unityproj
+*.sln
+*.suo
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+
+# Unity3D generated meta files you DO want to keep are *.meta - do not ignore those.
+# But ignore crash logs and auto-generated asset store cache.
+sysinfo.txt
+*.stackdump
+/[Aa]ssets/AssetStoreTools*
+
+# Addressables build artifacts
+/[Ll]ibrary/
+/[Aa]ssets/AddressableAssetsData/*/BuildData/
+/ServerData/
+
+# OS
+.DS_Store
+Thumbs.db
