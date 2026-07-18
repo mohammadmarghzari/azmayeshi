@@ -79,6 +79,9 @@ class AppState {
     // Covered-call quick tool (sidebar in the original app)
     var lastCoveredCallResult by mutableStateOf<CoveredCallResult?>(null)
 
+    // Starred tickers on the asset price screen
+    var favoriteTickers by mutableStateOf(setOf<String>())
+
     val rf: Double get() = riskFreeRatePct / 100.0
 
     fun resetComputedPortfolio() {
