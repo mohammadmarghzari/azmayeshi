@@ -17,12 +17,3 @@
 2. از طریق [https://streamlit.io/cloud](https://streamlit.io/cloud) اجرا کنید
 
 ساخته شده با ❤️ توسط محمد مرغزاری
-
----
-
-## پروژه‌ی دیگر در این ریپازیتوری: بازی Ferrum Protocol
-
-پوشه‌ی [`FerrumProtocol/`](FerrumProtocol/) شامل یک پروژه‌ی کاملاً جدا و مستقل است:
-ساخت یک بازی استراتژی بلادرنگ (RTS) اورجینال با Unity. برای شروع کار با آن،
-سند [`FerrumProtocol/Documentation/HANDBOOK_FA.md`](FerrumProtocol/Documentation/HANDBOOK_FA.md)
-را بخوان.
