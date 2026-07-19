@@ -66,8 +66,6 @@ import ir.marghzari.portfolio360.nav.Destination
 import ir.marghzari.portfolio360.state.AppState
 import ir.marghzari.portfolio360.theme.LocalChartColors
 import ir.marghzari.portfolio360.theme.Portfolio360Theme
-import ir.marghzari.portfolio360.ui.background.AnimatedBackground
-import ir.marghzari.portfolio360.ui.background.BackgroundArt
 import ir.marghzari.portfolio360.ui.branding.PremiumIconMotion
 import ir.marghzari.portfolio360.ui.motion.LocalMotionClock
 import ir.marghzari.portfolio360.ui.motion.LocalReducedMotion
@@ -269,8 +267,11 @@ private fun ScreenHost(destination: Destination, appState: AppState) {
         },
         label = "screen-transition",
     ) { dest ->
+        // Flat premium surface (Binance/TradingView-style): data screens read best on a clean
+        // solid dark ground, so the cinematic photo backdrop is reserved for the splash screen.
         Box(modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(22.dp))) {
-            AnimatedBackground(image = BackgroundArt.forDestination(dest)) {
+            val colors = LocalChartColors.current
+            Box(modifier = Modifier.fillMaxSize().background(colors.bg)) {
                 Box(modifier = Modifier.fillMaxSize().padding(4.dp)) {
                     when (dest) {
                         Destination.ALLOCATION -> AllocationScreen(appState)

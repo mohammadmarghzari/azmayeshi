@@ -23,6 +23,7 @@ import ir.marghzari.portfolio360.charts.RefLine
 import ir.marghzari.portfolio360.core.math.IranTools
 import ir.marghzari.portfolio360.state.AppState
 import ir.marghzari.portfolio360.theme.LocalChartColors
+import ir.marghzari.portfolio360.ui.components.ScreenHeader
 import ir.marghzari.portfolio360.ui.components.BadgeTone
 import ir.marghzari.portfolio360.ui.components.Card
 import ir.marghzari.portfolio360.ui.components.MetricTile
@@ -39,7 +40,7 @@ fun CertificatesScreen(appState: AppState) {
 
     LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxWidth()) {
         item {
-            SectionHeader("🏭 گواهی سپرده کالایی — بورس کالای ایران")
+            ScreenHeader("🏭 گواهی سپرده کالایی — بورس کالای ایران")
             NumberInput("قیمت دلار بازار آزاد (تومان)", marketDollar, { marketDollar = it })
         }
         item {

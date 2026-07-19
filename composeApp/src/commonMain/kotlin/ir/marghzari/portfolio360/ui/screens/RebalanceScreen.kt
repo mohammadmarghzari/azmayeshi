@@ -26,6 +26,7 @@ import ir.marghzari.portfolio360.core.math.CorrelationRegimeResult
 import ir.marghzari.portfolio360.core.math.Rebalancing
 import ir.marghzari.portfolio360.state.AppState
 import ir.marghzari.portfolio360.theme.LocalChartColors
+import ir.marghzari.portfolio360.ui.components.ScreenHeader
 import ir.marghzari.portfolio360.ui.components.EmptyState
 import ir.marghzari.portfolio360.ui.components.Card
 import ir.marghzari.portfolio360.ui.components.SectionHeader
@@ -54,7 +55,7 @@ fun RebalanceScreen(appState: AppState) {
 
     LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxWidth()) {
         item {
-            SectionHeader("Rebalancing Alert — نیاز به ری‌بالانس")
+            ScreenHeader("Rebalancing Alert — نیاز به ری‌بالانس")
             Text("ارزش فعلی پرتفو: $%,.0f".format(capital), style = MaterialTheme.typography.labelMedium)
             Slider(value = capital.toFloat(), onValueChange = { capital = it.toDouble() }, valueRange = 1000f..1_000_000f)
             Text("آستانه ری‌بالانس: ${thresholdPct.toInt()}%", style = MaterialTheme.typography.labelMedium)

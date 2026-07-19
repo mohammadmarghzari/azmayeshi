@@ -20,6 +20,7 @@ import ir.marghzari.portfolio360.charts.BarSeries
 import ir.marghzari.portfolio360.core.math.IranTools
 import ir.marghzari.portfolio360.state.AppState
 import ir.marghzari.portfolio360.theme.LocalChartColors
+import ir.marghzari.portfolio360.ui.components.ScreenHeader
 import ir.marghzari.portfolio360.ui.components.AppTextField
 import ir.marghzari.portfolio360.ui.components.Card
 import ir.marghzari.portfolio360.ui.components.MetricTile
@@ -63,7 +64,7 @@ fun IranToolsScreen(appState: AppState) {
 
     LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxWidth()) {
         item {
-            SectionHeader("🇮🇷 ابزار ایران — نرخ واقعی دلار")
+            ScreenHeader("🇮🇷 ابزار ایران — نرخ واقعی دلار", "برآورد قیمت واقعی دلار با دو روش مستقل: تورم و طلا")
             NumberInput("قیمت دلار بازار آزاد (تومان)", marketDollar, { marketDollar = it })
         }
 

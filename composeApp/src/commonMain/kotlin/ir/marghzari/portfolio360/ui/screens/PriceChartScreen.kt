@@ -10,6 +10,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -54,6 +55,7 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ir.marghzari.portfolio360.charts.HeatmapChart
@@ -63,9 +65,13 @@ import ir.marghzari.portfolio360.core.math.Stats
 import ir.marghzari.portfolio360.core.network.TickerHistory
 import ir.marghzari.portfolio360.state.AppState
 import ir.marghzari.portfolio360.theme.LocalChartColors
+import ir.marghzari.portfolio360.util.pct
 import ir.marghzari.portfolio360.theme.chartColor
+import ir.marghzari.portfolio360.ui.components.BadgeTone
+import ir.marghzari.portfolio360.ui.components.CoinAvatar
 import ir.marghzari.portfolio360.ui.components.EmptyState
 import ir.marghzari.portfolio360.ui.components.Card
+import ir.marghzari.portfolio360.ui.components.StatusBadge
 import ir.marghzari.portfolio360.ui.components.GlowButton
 import ir.marghzari.portfolio360.ui.components.MetricTile
 import ir.marghzari.portfolio360.ui.components.SectionHeader
@@ -301,25 +307,37 @@ private fun AssetHeroCard(
                     )
                 }
             }
-            Text(
-                "$%,.2f".format(animatedPrice),
-                style = MaterialTheme.typography.titleLarge.copy(fontSize = 34.sp),
-                color = colors.textPrimary,
-                modifier = Modifier.padding(top = 10.dp),
-            )
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
-                Icon(
-                    if (positive) Icons.Rounded.ArrowUpward else Icons.Rounded.ArrowDownward,
-                    contentDescription = null,
-                    tint = if (positive) colors.green else colors.red,
-                    modifier = Modifier.size(16.dp),
-                )
-                Text(
-                    "%s%,.2f (%s%.2f%%)".format(if (positive) "+" else "", change, if (positive) "+" else "", changePct),
-                    color = if (positive) colors.green else colors.red,
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(start = 4.dp),
-                )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.padding(top = 12.dp),
+            ) {
+                CoinAvatar(selected, size = 44.dp)
+                Column {
+                    Text(
+                        "$%,.2f".format(animatedPrice),
+                        style = MaterialTheme.typography.titleLarge.copy(fontSize = 34.sp, fontWeight = FontWeight.Bold),
+                        color = colors.textPrimary,
+                    )
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
+                        Icon(
+                            if (positive) Icons.Rounded.ArrowUpward else Icons.Rounded.ArrowDownward,
+                            contentDescription = null,
+                            tint = if (positive) colors.green else colors.red,
+                            modifier = Modifier.size(16.dp),
+                        )
+                        Text(
+                            "%s%,.2f".format(if (positive) "+" else "", change),
+                            color = if (positive) colors.green else colors.red,
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.padding(start = 4.dp, end = 8.dp),
+                        )
+                        StatusBadge(
+                            text = changePct.pct(2, signed = true),
+                            tone = if (positive) BadgeTone.SUCCESS else BadgeTone.ERROR,
+                        )
+                    }
+                }
             }
         }
         Box(

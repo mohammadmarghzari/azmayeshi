@@ -27,6 +27,7 @@ import ir.marghzari.portfolio360.core.network.YahooFinanceClient
 import ir.marghzari.portfolio360.state.AppState
 import ir.marghzari.portfolio360.state.PriceAlert
 import ir.marghzari.portfolio360.theme.LocalChartColors
+import ir.marghzari.portfolio360.ui.components.ScreenHeader
 import ir.marghzari.portfolio360.ui.components.EmptyState
 import ir.marghzari.portfolio360.ui.components.Card
 import ir.marghzari.portfolio360.ui.components.SectionHeader
@@ -47,8 +48,7 @@ fun AlertsScreen(appState: AppState) {
 
     LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxWidth()) {
         item {
-            SectionHeader("🔔 هشدار قیمت")
-            Text("قیمت فعلی نمادها را با آستانه‌های تعریف‌شده مقایسه می‌کند.", style = MaterialTheme.typography.bodySmall, color = colors.muted)
+            ScreenHeader("🔔 هشدار قیمت", "قیمت فعلی نمادها را با آستانه‌های تعریف‌شده مقایسه می‌کند.")
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 10.dp)) {
                 SimpleDropdown("نماد", symbol, SymbolCatalog.ALL_TICKERS, { it }, { symbol = it }, modifier = Modifier.weight(1f))
                 SimpleDropdown("نوع", isAbove, listOf(true, false), { if (it) "بالاتر از" else "پایین‌تر از" }, { isAbove = it }, modifier = Modifier.weight(1f))

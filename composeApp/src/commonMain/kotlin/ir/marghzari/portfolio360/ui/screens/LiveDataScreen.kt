@@ -29,6 +29,7 @@ import ir.marghzari.portfolio360.core.network.FearGreedData
 import ir.marghzari.portfolio360.core.network.NewsItem
 import ir.marghzari.portfolio360.state.AppState
 import ir.marghzari.portfolio360.theme.LocalChartColors
+import ir.marghzari.portfolio360.ui.components.ScreenHeader
 import ir.marghzari.portfolio360.ui.components.AppButton
 import ir.marghzari.portfolio360.ui.components.Card
 import ir.marghzari.portfolio360.ui.components.EmptyState
@@ -78,8 +79,7 @@ fun LiveDataScreen(appState: AppState) {
 
     LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxWidth()) {
         item {
-            SectionHeader("Fear & Greed Index")
-            Text("شاخص ترس و طمع CNN — بدون API، مستقیم از سایت.", style = MaterialTheme.typography.bodySmall, color = colors.muted)
+            ScreenHeader("Fear & Greed Index", "شاخص ترس و طمع CNN — بدون API، مستقیم از سایت.")
         }
         item {
             StateHost(

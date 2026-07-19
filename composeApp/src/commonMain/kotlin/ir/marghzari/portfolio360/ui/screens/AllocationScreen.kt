@@ -25,10 +25,15 @@ import ir.marghzari.portfolio360.charts.TreemapItem
 import ir.marghzari.portfolio360.state.AppState
 import ir.marghzari.portfolio360.theme.LocalChartColors
 import ir.marghzari.portfolio360.theme.chartColor
+import ir.marghzari.portfolio360.ui.components.AssetRow
 import ir.marghzari.portfolio360.ui.components.EmptyState
 import ir.marghzari.portfolio360.ui.components.Card
+import ir.marghzari.portfolio360.ui.components.HeroMetric
 import ir.marghzari.portfolio360.ui.components.PortfolioSetupPanel
+import ir.marghzari.portfolio360.ui.components.ScreenHeader
 import ir.marghzari.portfolio360.ui.components.SectionHeader
+import ir.marghzari.portfolio360.util.money
+import ir.marghzari.portfolio360.util.pct
 
 @Composable
 fun AllocationScreen(appState: AppState) {
@@ -44,20 +49,35 @@ fun AllocationScreen(appState: AppState) {
         }
 
         item {
-            SectionHeader("تخصیص پرتفوی")
             val sortedIdx = prices.tickers.indices.sortedByDescending { weights[it] }
             var totalCapital by remember { mutableStateOf(10000.0) }
+            val topIdx = sortedIdx.first()
 
+            ScreenHeader("تخصیص پرتفوی", "وزن بهینه هر دارایی بر اساس سبک «${appState.styleLabelUsed}»")
+            Card(modifier = Modifier.fillMaxWidth(), highlighted = true) {
+                HeroMetric(
+                    label = "ارزش کل پرتفوی",
+                    value = totalCapital.money(),
+                    delta = "${prices.tickers.size} دارایی",
+                )
+                Text(
+                    "بزرگ‌ترین موقعیت: ${prices.tickers[topIdx]} با وزن ${(weights[topIdx] * 100).pct(1)}",
+                    style = MaterialTheme.typography.bodySmall, color = colors.muted,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+            }
+
+            SectionHeader("دارایی‌ها")
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxWidth()) {
                 Card(modifier = Modifier.weight(1f)) {
-                    Text("نماد   وزن (%)   مبلغ ($)", style = MaterialTheme.typography.labelMedium, color = colors.muted)
                     sortedIdx.forEach { i ->
                         val w = weights[i] * 100
-                        Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(prices.tickers[i], style = MaterialTheme.typography.bodyMedium, color = colors.textPrimary)
-                            Text("%.2f%%".format(w), style = MaterialTheme.typography.bodyMedium, color = colors.textPrimary)
-                            Text("$%,.2f".format(w / 100 * totalCapital), style = MaterialTheme.typography.bodyMedium, color = colors.blueAccent)
-                        }
+                        AssetRow(
+                            symbol = prices.tickers[i],
+                            title = prices.tickers[i],
+                            caption = "وزن ${w.pct(2)}",
+                            value = (w / 100 * totalCapital).money(),
+                        )
                     }
                 }
                 Card(modifier = Modifier.weight(1f)) {

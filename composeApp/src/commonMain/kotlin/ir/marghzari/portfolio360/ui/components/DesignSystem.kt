@@ -30,6 +30,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import ir.marghzari.portfolio360.theme.LocalChartColors
 import ir.marghzari.portfolio360.theme.Radii
 import ir.marghzari.portfolio360.theme.Spacing
@@ -300,6 +301,97 @@ fun ErrorState(
         Text(message, style = MaterialTheme.typography.bodySmall, color = colors.textPrimary)
         if (onRetry != null) {
             AppButton("تلاش دوباره", onClick = onRetry, style = ButtonStyle.Secondary)
+        }
+    }
+}
+
+/**
+ * Standard screen intro: large title + muted one-line subtitle with consistent rhythm, replacing
+ * each screen's ad-hoc first SectionHeader + caption pair.
+ */
+@Composable
+fun ScreenHeader(title: String, subtitle: String? = null, modifier: Modifier = Modifier) {
+    val colors = LocalChartColors.current
+    Column(modifier = modifier.fillMaxWidth().padding(top = Spacing.sm, bottom = Spacing.sm)) {
+        Text(title, style = MaterialTheme.typography.titleLarge, color = colors.textPrimary)
+        if (subtitle != null) {
+            Text(
+                subtitle, style = MaterialTheme.typography.bodySmall, color = colors.muted,
+                modifier = Modifier.padding(top = Spacing.xs),
+            )
+        }
+    }
+}
+
+/**
+ * Hero number for summary cards: oversized mono-bold value with a label above and an optional
+ * tinted delta pill beside it — the Coinbase/Delta "big balance" pattern.
+ */
+@Composable
+fun HeroMetric(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier,
+    delta: String? = null,
+    deltaPositive: Boolean? = null,
+) {
+    val colors = LocalChartColors.current
+    Column(modifier = modifier) {
+        Text(label, style = MaterialTheme.typography.labelMedium, color = colors.muted)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
+            Text(
+                value,
+                style = MaterialTheme.typography.titleLarge.copy(fontSize = 28.sp, fontWeight = FontWeight.Bold),
+                color = colors.textPrimary,
+                modifier = Modifier.padding(top = Spacing.xs),
+            )
+            if (delta != null) {
+                StatusBadge(
+                    text = delta,
+                    tone = when (deltaPositive) {
+                        true -> BadgeTone.SUCCESS
+                        false -> BadgeTone.ERROR
+                        null -> BadgeTone.NEUTRAL
+                    },
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Asset list row: colored [CoinAvatar] + name/caption on one side, right-aligned mono value and
+ * colored delta on the other — the standard holdings/quotes row of Delta/CoinStats.
+ */
+@Composable
+fun AssetRow(
+    symbol: String,
+    title: String,
+    value: String,
+    modifier: Modifier = Modifier,
+    caption: String? = null,
+    delta: String? = null,
+    deltaPositive: Boolean? = null,
+) {
+    val colors = LocalChartColors.current
+    Row(
+        modifier = modifier.fillMaxWidth().padding(vertical = Spacing.sm),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+    ) {
+        CoinAvatar(symbol)
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyMedium, color = colors.textPrimary)
+            if (caption != null) {
+                Text(caption, style = MaterialTheme.typography.labelSmall, color = colors.muted)
+            }
+        }
+        Column(horizontalAlignment = Alignment.End) {
+            Text(value, style = MaterialTheme.typography.labelLarge, color = colors.textPrimary)
+            if (delta != null) {
+                val dc = when (deltaPositive) { true -> colors.green; false -> colors.red; null -> colors.muted }
+                Text(delta, style = MaterialTheme.typography.labelSmall, color = dc)
+            }
         }
     }
 }

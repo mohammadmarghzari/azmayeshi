@@ -27,6 +27,7 @@ import ir.marghzari.portfolio360.state.AppState
 import ir.marghzari.portfolio360.state.SavedPortfolio
 import ir.marghzari.portfolio360.theme.LocalChartColors
 import ir.marghzari.portfolio360.theme.chartColor
+import ir.marghzari.portfolio360.ui.components.ScreenHeader
 import ir.marghzari.portfolio360.ui.components.EmptyState
 import ir.marghzari.portfolio360.ui.components.Card
 import ir.marghzari.portfolio360.ui.components.MetricTile
@@ -41,7 +42,7 @@ fun SavePortfolioScreen(appState: AppState) {
 
     LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxWidth()) {
         item {
-            SectionHeader("💾 ذخیره پرتفوی فعلی")
+            ScreenHeader("💾 ذخیره پرتفوی فعلی")
             if (weights != null && metrics != null && prices != null) {
                 var name by remember { mutableStateOf("") }
                 var message by remember { mutableStateOf<String?>(null) }

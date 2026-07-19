@@ -3,6 +3,7 @@ package ir.marghzari.portfolio360.ui.screens
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -24,6 +25,9 @@ import ir.marghzari.portfolio360.core.math.Stats
 import ir.marghzari.portfolio360.state.AppState
 import ir.marghzari.portfolio360.theme.LocalChartColors
 import ir.marghzari.portfolio360.ui.components.EmptyState
+import ir.marghzari.portfolio360.ui.components.HeroMetric
+import ir.marghzari.portfolio360.ui.components.ScreenHeader
+import ir.marghzari.portfolio360.util.pct
 import ir.marghzari.portfolio360.ui.components.Card
 import ir.marghzari.portfolio360.ui.components.MetricTile
 import ir.marghzari.portfolio360.ui.components.SectionHeader
@@ -66,13 +70,25 @@ fun RiskReturnScreen(appState: AppState) {
         }
 
         item {
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            ScreenHeader("ریسک و بازده", "متریک‌های سالانه پرتفوی بر اساس داده تاریخی")
+            Card(modifier = Modifier.fillMaxWidth(), highlighted = true) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    HeroMetric(
+                        label = "بازده سالانه",
+                        value = (displayMetrics.annualReturn * 100).pct(2, signed = true),
+                        delta = "شارپ %.2f".format(displayMetrics.sharpeRatio),
+                        deltaPositive = displayMetrics.sharpeRatio >= 1.0,
+                    )
+                    HeroMetric(
+                        label = "نوسان سالانه",
+                        value = (displayMetrics.annualVolatility * 100).pct(2),
+                    )
+                }
+            }
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(top = 12.dp)) {
                 items(
                     listOf(
-                        Triple("بازده سالانه", "%.2f%%".format(displayMetrics.annualReturn * 100), null),
                         Triple("بازده تعدیل‌شده ریسک", "%.2f%%".format(displayMetrics.riskAdjustedReturn * 100), null),
-                        Triple("نوسان سالانه", "%.2f%%".format(displayMetrics.annualVolatility * 100), null),
-                        Triple("نسبت شارپ", "%.3f".format(displayMetrics.sharpeRatio), null),
                         Triple("حداکثر افت (MDD)", "%.2f%%".format(displayMetrics.maxDrawdown * 100), null),
                         Triple("CVaR 95%", "%.2f%%".format(displayMetrics.cvar95 * 100), null),
                         Triple("نسبت کالمار", "%.3f".format(displayMetrics.calmarRatio), null),

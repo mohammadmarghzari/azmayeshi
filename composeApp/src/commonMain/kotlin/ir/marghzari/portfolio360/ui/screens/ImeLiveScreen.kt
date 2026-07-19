@@ -30,7 +30,9 @@ import ir.marghzari.portfolio360.core.network.ImeClient
 import ir.marghzari.portfolio360.state.AppState
 import ir.marghzari.portfolio360.theme.LocalChartColors
 import ir.marghzari.portfolio360.theme.chartColor
+import ir.marghzari.portfolio360.ui.components.ScreenHeader
 import ir.marghzari.portfolio360.ui.components.AppButton
+import ir.marghzari.portfolio360.ui.components.AssetRow
 import ir.marghzari.portfolio360.ui.components.Card
 import ir.marghzari.portfolio360.ui.components.ErrorState
 import ir.marghzari.portfolio360.ui.components.EmptyState
@@ -62,8 +64,7 @@ fun ImeLiveScreen(appState: AppState) {
 
     LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxWidth()) {
         item {
-            SectionHeader("📡 IME Live — گواهی سپرده کالایی")
-            Text("بورس کالای ایران · API رسمی · نرخ تازه‌سازی: ۶۰ ثانیه · منبع: api.ime.co.ir", style = MaterialTheme.typography.bodySmall, color = colors.muted)
+            ScreenHeader("📡 IME Live — گواهی سپرده کالایی", "بورس کالای ایران · API رسمی · نرخ تازه‌سازی: ۶۰ ثانیه · منبع: api.ime.co.ir")
             AppButton(
                 text = "🔄 بروزرسانی",
                 onClick = { scope.launch { load() } },
@@ -96,14 +97,14 @@ fun ImeLiveScreen(appState: AppState) {
                 SectionHeader("① تابلوی زنده — آخرین قیمت‌ها")
                 Card(modifier = Modifier.fillMaxWidth()) {
                     quotes.forEach { q ->
-                        Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(q.commodity, color = colors.textPrimary, style = MaterialTheme.typography.bodyMedium)
-                            Text("%,.0f ریال".format(q.pl), color = colors.textPrimary, style = MaterialTheme.typography.bodyMedium)
-                            Text(
-                                "%s%.2f%%".format(if (q.plChangePct >= 0) "▲" else "▼", q.plChangePct),
-                                color = if (q.plChangePct >= 0) colors.green else colors.red, style = MaterialTheme.typography.bodyMedium,
-                            )
-                        }
+                        AssetRow(
+                            symbol = q.commodity,
+                            title = q.commodity,
+                            caption = q.contractCode,
+                            value = "%,.0f ریال".format(q.pl),
+                            delta = "%+.2f%%".format(q.plChangePct),
+                            deltaPositive = q.plChangePct >= 0,
+                        )
                     }
                     BarChart(
                         categories = quotes.map { it.commodity }, series = listOf(BarSeries("تغییر %", colors.blueAccent, quotes.map { it.plChangePct })),

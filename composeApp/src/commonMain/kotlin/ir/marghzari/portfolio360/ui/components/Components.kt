@@ -122,10 +122,9 @@ fun Card(
                         ),
                     )
                 } else {
-                    Modifier.background(
-                        Brush.verticalGradient(listOf(colors.card.copy(alpha = 0.97f), colors.card.copy(alpha = 0.92f))),
-                        shape,
-                    )
+                    // Flat premium look: solid card surface reads cleanest over the plain dark
+                    // ground now that data screens no longer draw a photo backdrop behind cards.
+                    Modifier.background(colors.card, shape)
                 },
             )
             .border(

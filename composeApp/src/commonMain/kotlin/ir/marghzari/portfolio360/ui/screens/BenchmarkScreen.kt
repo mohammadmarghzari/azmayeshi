@@ -29,6 +29,7 @@ import ir.marghzari.portfolio360.core.math.Stats
 import ir.marghzari.portfolio360.core.model.HistoryPeriod
 import ir.marghzari.portfolio360.state.AppState
 import ir.marghzari.portfolio360.theme.LocalChartColors
+import ir.marghzari.portfolio360.ui.components.ScreenHeader
 import ir.marghzari.portfolio360.ui.components.EmptyState
 import ir.marghzari.portfolio360.ui.components.Card
 import ir.marghzari.portfolio360.ui.components.MetricTile
@@ -60,7 +61,7 @@ fun BenchmarkScreen(appState: AppState) {
 
     LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxWidth()) {
         item {
-            SectionHeader("📊 Benchmark Comparison — مقایسه با شاخص")
+            ScreenHeader("📊 Benchmark Comparison — مقایسه با شاخص")
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 SimpleDropdown("بنچمارک", benchmark, BENCHMARKS, { it }, { benchmark = it }, modifier = Modifier.weight(1f))
                 SimpleDropdown("بازه", period, HistoryPeriod.entries, { it.faLabel }, { period = it }, modifier = Modifier.weight(1f))

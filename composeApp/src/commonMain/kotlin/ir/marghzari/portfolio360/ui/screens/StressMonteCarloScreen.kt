@@ -29,6 +29,7 @@ import ir.marghzari.portfolio360.core.math.StressTest
 import ir.marghzari.portfolio360.core.math.StressTestRow
 import ir.marghzari.portfolio360.state.AppState
 import ir.marghzari.portfolio360.theme.LocalChartColors
+import ir.marghzari.portfolio360.ui.components.ScreenHeader
 import ir.marghzari.portfolio360.ui.components.EmptyState
 import ir.marghzari.portfolio360.ui.components.Card
 import ir.marghzari.portfolio360.ui.components.MetricTile
@@ -51,8 +52,7 @@ fun StressMonteCarloScreen(appState: AppState) {
 
     LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxWidth()) {
         item {
-            SectionHeader("Stress Test — مقاومت در برابر بحران‌های تاریخی")
-            Text("شبیه‌سازی می‌کند اگه پرتفوی فعلی در هر بحران تاریخی بود، چه اتفاقی می‌افتاد.", style = MaterialTheme.typography.bodySmall, color = colors.muted)
+            ScreenHeader("Stress Test — مقاومت در برابر بحران‌های تاریخی", "شبیه‌سازی می‌کند اگه پرتفوی فعلی در هر بحران تاریخی بود، چه اتفاقی می‌افتاد.")
             Button(
                 onClick = { stressRows = StressTest.run(prices.dates, prices.values, prices.tickers, weights) },
                 modifier = Modifier.fillMaxWidth().padding(top = 10.dp), colors = ButtonDefaults.buttonColors(containerColor = colors.red),

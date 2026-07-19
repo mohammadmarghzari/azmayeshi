@@ -35,6 +35,7 @@ import ir.marghzari.portfolio360.core.math.RollingMetrics
 import ir.marghzari.portfolio360.core.math.Stats
 import ir.marghzari.portfolio360.state.AppState
 import ir.marghzari.portfolio360.theme.LocalChartColors
+import ir.marghzari.portfolio360.ui.components.ScreenHeader
 import ir.marghzari.portfolio360.ui.components.EmptyState
 import ir.marghzari.portfolio360.ui.components.Card
 import ir.marghzari.portfolio360.ui.components.MetricTile
@@ -58,7 +59,7 @@ fun EfficientFrontierScreen(appState: AppState) {
 
     LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxWidth()) {
         item {
-            SectionHeader("Efficient Frontier — مرز کارایی پرتفوی")
+            ScreenHeader("Efficient Frontier — مرز کارایی پرتفوی")
             Text(
                 "هر نقطه یک ترکیب ممکن از دارایی‌هاست. مرز کارایی بالاترین بازده به ازای هر سطح ریسک را نشان می‌دهد.",
                 style = MaterialTheme.typography.bodySmall, color = colors.muted,

@@ -33,6 +33,7 @@ import ir.marghzari.portfolio360.core.model.RiskInputs
 import ir.marghzari.portfolio360.state.AppState
 import ir.marghzari.portfolio360.state.HedgedAsset
 import ir.marghzari.portfolio360.theme.LocalChartColors
+import ir.marghzari.portfolio360.ui.components.ScreenHeader
 import ir.marghzari.portfolio360.ui.components.EmptyState
 import ir.marghzari.portfolio360.ui.components.Card
 import ir.marghzari.portfolio360.ui.components.MetricTile
@@ -53,7 +54,7 @@ fun AdvancedOptionsScreen(appState: AppState) {
 
     LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxWidth()) {
         item {
-            SectionHeader("🎯 اختیار پیشرفته")
+            ScreenHeader("🎯 اختیار پیشرفته")
             SimpleDropdown("استراتژی", strategy, OptionsStrategy.entries, { it.label }, { strategy = it })
         }
         item {

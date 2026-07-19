@@ -26,6 +26,7 @@ import ir.marghzari.portfolio360.core.math.FactorRow
 import ir.marghzari.portfolio360.core.math.Stats
 import ir.marghzari.portfolio360.state.AppState
 import ir.marghzari.portfolio360.theme.LocalChartColors
+import ir.marghzari.portfolio360.ui.components.ScreenHeader
 import ir.marghzari.portfolio360.ui.components.EmptyState
 import ir.marghzari.portfolio360.ui.components.Card
 import ir.marghzari.portfolio360.ui.components.SectionHeader
@@ -53,8 +54,7 @@ fun BlackLittermanScreen(appState: AppState) {
 
     LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxWidth()) {
         item {
-            SectionHeader("🧠 Black-Litterman — دیدگاه‌های شخصی روی بازار")
-            Text("برای هر نمادی که دیدگاه دارید، بازده سالانه مورد انتظار وارد کنید.", style = MaterialTheme.typography.bodySmall, color = colors.muted)
+            ScreenHeader("🧠 Black-Litterman — دیدگاه‌های شخصی روی بازار", "برای هر نمادی که دیدگاه دارید، بازده سالانه مورد انتظار وارد کنید.")
         }
         item {
             Text("تعداد دیدگاه: ${nViews.toInt()}", style = MaterialTheme.typography.labelMedium)

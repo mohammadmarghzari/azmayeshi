@@ -30,6 +30,7 @@ import ir.marghzari.portfolio360.core.math.OptionType
 import ir.marghzari.portfolio360.core.math.OptionsStrategies
 import ir.marghzari.portfolio360.state.AppState
 import ir.marghzari.portfolio360.theme.LocalChartColors
+import ir.marghzari.portfolio360.ui.components.ScreenHeader
 import ir.marghzari.portfolio360.ui.components.AppButton
 import ir.marghzari.portfolio360.ui.components.Card
 import ir.marghzari.portfolio360.ui.components.MetricTile
@@ -76,8 +77,7 @@ fun BourseOptionsScreen(appState: AppState) {
 
     LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxWidth()) {
         item {
-            SectionHeader("🏛 اختیار معامله — بورس کالای ایران")
-            Text("قیمت‌گذاری · Greeks · P&L · استراتژی‌های ترکیبی · مقایسه سررسید", style = MaterialTheme.typography.bodySmall, color = colors.muted)
+            ScreenHeader("🏛 اختیار معامله — بورس کالای ایران", "قیمت‌گذاری · Greeks · P&L · استراتژی‌های ترکیبی · مقایسه سررسید")
         }
         item {
             SectionHeader("① دارایی پایه و پارامترهای قرارداد")
