@@ -30,8 +30,8 @@ import ir.marghzari.portfolio360.core.model.PortfolioStyle
 import ir.marghzari.portfolio360.state.AppState
 import ir.marghzari.portfolio360.theme.LocalChartColors
 import ir.marghzari.portfolio360.theme.chartColor
+import ir.marghzari.portfolio360.ui.components.EmptyState
 import ir.marghzari.portfolio360.ui.components.Card
-import ir.marghzari.portfolio360.ui.components.InfoBanner
 import ir.marghzari.portfolio360.ui.components.SectionHeader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -44,7 +44,7 @@ fun StyleCompareScreen(appState: AppState) {
     val colors = LocalChartColors.current
     val prices = appState.prices
     if (prices == null || prices.nAssets < 2) {
-        InfoBanner("حداقل ۲ نماد نیاز است.")
+        EmptyState(title = "حداقل ۲ نماد نیاز است", hint = "برای مقایسه سبک‌ها، پرتفوی را با دست‌کم دو نماد بسازید.")
         return
     }
     val scope = rememberCoroutineScope()

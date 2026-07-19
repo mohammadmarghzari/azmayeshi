@@ -7,8 +7,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
@@ -32,6 +30,7 @@ import ir.marghzari.portfolio360.core.math.OptionType
 import ir.marghzari.portfolio360.core.math.OptionsStrategies
 import ir.marghzari.portfolio360.state.AppState
 import ir.marghzari.portfolio360.theme.LocalChartColors
+import ir.marghzari.portfolio360.ui.components.AppButton
 import ir.marghzari.portfolio360.ui.components.Card
 import ir.marghzari.portfolio360.ui.components.MetricTile
 import ir.marghzari.portfolio360.ui.components.SectionHeader
@@ -125,10 +124,11 @@ fun BourseOptionsScreen(appState: AppState) {
             var marketPrice by remember { mutableStateOf(0.0) }
             var ivCalc by remember { mutableStateOf<Double?>(null) }
             NumField("قیمت معامله‌شده در تابلو (ریال/واحد)", marketPrice, { marketPrice = it })
-            Button(
+            AppButton(
+                text = "محاسبه IV از قیمت بازار",
                 onClick = { ivCalc = BlackScholes.impliedVolatility(marketPrice, spot, strike, T, r, if (isCall) OptionType.CALL else OptionType.PUT) },
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp), colors = ButtonDefaults.buttonColors(containerColor = colors.blueAccent),
-            ) { Text("محاسبه IV از قیمت بازار") }
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            )
             ivCalc?.let {
                 val diff = it * 100 - iv
                 Text(

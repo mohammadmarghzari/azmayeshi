@@ -42,6 +42,8 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import dev.chrisbanes.haze.HazeDefaults
 import dev.chrisbanes.haze.hazeChild
@@ -317,9 +319,10 @@ fun GlowButton(
         label = "glow-button-scale",
     )
     val shape = RoundedCornerShape(50)
-    val glowColors = gradient ?: listOf(colors.blueAccent, colors.gold.copy(alpha = 0.9f))
+    val glowColors = gradient ?: listOf(colors.blueAccent, Color(0xFF7C3AED))
+    val haptics = LocalHapticFeedback.current
     androidx.compose.material3.Button(
-        onClick = onClick,
+        onClick = { haptics.performHapticFeedback(HapticFeedbackType.LongPress); onClick() },
         enabled = enabled && !loading,
         interactionSource = interactionSource,
         shape = shape,

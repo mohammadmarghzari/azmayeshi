@@ -46,18 +46,18 @@ val LightBlueprint = BlueprintColors(
 )
 
 val DarkBlueprint = BlueprintColors(
-    bg = Color(0xFF131318), bg2 = Color(0xFF1A1A21), panel = Color(0xFF1E1E26), card = Color(0xFF202028),
-    accent = Color(0xFFB0B0C0), accent2 = Color(0xFF8888A0), gold = Color(0xFFC8A84B),
+    bg = Color(0xFF0E0E12), bg2 = Color(0xFF16161C), panel = Color(0xFF181820), card = Color(0xFF1C1C24),
+    accent = Color(0xFFB4B4C4), accent2 = Color(0xFF8A8AA2), gold = Color(0xFFD9B44A),
     green = Color(0xFF4ADE80), red = Color(0xFFF87171),
-    textPrimary = Color(0xFFF5F5FA), silver = Color(0xFF9090A0), muted = Color(0xFF6A6A78),
-    sidebarBg = Color(0xFF131318),
-    plotBg = Color(0xFF1A1A21), plotGrid = Color(0x0DFFFFFF), plotTick = Color(0xFF8888A0), plotText = Color(0xFFC0C0CC),
+    textPrimary = Color(0xFFF7F7FC), silver = Color(0xFF9494A6), muted = Color(0xFF70707E),
+    sidebarBg = Color(0xFF0E0E12),
+    plotBg = Color(0xFF16161C), plotGrid = Color(0x14FFFFFF), plotTick = Color(0xFF8A8AA2), plotText = Color(0xFFC6C6D2),
     riskGeo = Color(0xFFE8945A), riskMon = Color(0xFF5A9BE8), riskSys = Color(0xFFB07AD4),
     blueAccent = VIOLET_SOFT,
     isDark = true,
 )
 
-val LocalBlueprintColors = staticCompositionLocalOf { LightBlueprint }
+val LocalBlueprintColors = staticCompositionLocalOf { DarkBlueprint }
 
 private val monoFontFamily = FontFamily.Monospace
 private val bodyFontFamily = FontFamily.SansSerif

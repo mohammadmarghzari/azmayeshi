@@ -26,8 +26,8 @@ import ir.marghzari.portfolio360.core.math.FactorRow
 import ir.marghzari.portfolio360.core.math.Stats
 import ir.marghzari.portfolio360.state.AppState
 import ir.marghzari.portfolio360.theme.LocalChartColors
+import ir.marghzari.portfolio360.ui.components.EmptyState
 import ir.marghzari.portfolio360.ui.components.Card
-import ir.marghzari.portfolio360.ui.components.InfoBanner
 import ir.marghzari.portfolio360.ui.components.SectionHeader
 import ir.marghzari.portfolio360.ui.components.SimpleDropdown
 
@@ -36,7 +36,7 @@ fun BlackLittermanScreen(appState: AppState) {
     val colors = LocalChartColors.current
     val prices = appState.prices
     if (prices == null) {
-        InfoBanner("ابتدا داده پرتفوی را دانلود کنید.")
+        EmptyState(title = "هنوز داده‌ای دریافت نشده", hint = "از تب «تخصیص دارایی» داده پرتفوی را دانلود کنید.")
         return
     }
     val returns = remember(prices) { prices.dailyReturns() }

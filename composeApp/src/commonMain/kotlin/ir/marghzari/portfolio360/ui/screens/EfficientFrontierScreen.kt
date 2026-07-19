@@ -35,8 +35,8 @@ import ir.marghzari.portfolio360.core.math.RollingMetrics
 import ir.marghzari.portfolio360.core.math.Stats
 import ir.marghzari.portfolio360.state.AppState
 import ir.marghzari.portfolio360.theme.LocalChartColors
+import ir.marghzari.portfolio360.ui.components.EmptyState
 import ir.marghzari.portfolio360.ui.components.Card
-import ir.marghzari.portfolio360.ui.components.InfoBanner
 import ir.marghzari.portfolio360.ui.components.MetricTile
 import ir.marghzari.portfolio360.ui.components.SectionHeader
 import kotlinx.coroutines.Dispatchers
@@ -49,7 +49,7 @@ fun EfficientFrontierScreen(appState: AppState) {
     val weights = appState.weights
     val prices = appState.prices
     if (weights == null || prices == null) {
-        InfoBanner("ابتدا پرتفوی را محاسبه کنید.")
+        EmptyState(title = "هنوز پرتفویی محاسبه نشده", hint = "از تب «تخصیص دارایی» داده را دریافت و پرتفوی را محاسبه کنید.")
         return
     }
     val scope = rememberCoroutineScope()

@@ -23,8 +23,10 @@ import ir.marghzari.portfolio360.charts.RefLine
 import ir.marghzari.portfolio360.core.math.IranTools
 import ir.marghzari.portfolio360.state.AppState
 import ir.marghzari.portfolio360.theme.LocalChartColors
+import ir.marghzari.portfolio360.ui.components.BadgeTone
 import ir.marghzari.portfolio360.ui.components.Card
 import ir.marghzari.portfolio360.ui.components.MetricTile
+import ir.marghzari.portfolio360.ui.components.StatusBadge
 import ir.marghzari.portfolio360.ui.components.SectionHeader
 import ir.marghzari.portfolio360.ui.components.SimpleDropdown
 import ir.marghzari.portfolio360.ui.motion.motionColorsFor
@@ -44,6 +46,10 @@ fun CertificatesScreen(appState: AppState) {
             var world by remember { mutableStateOf<IranTools.WorldPrices?>(null) }
             LaunchedEffect(Unit) { world = appState.worldCommodities.fetch() }
             val effectiveWorld = world ?: IranTools.WorldPrices(2350.0, 30.0, 4.5 * 2.20462, 2800.0 / 1000.0)
+            StatusBadge(
+                text = if (world != null) "قیمت‌های جهانی: زنده از Yahoo Finance" else "قیمت‌های جهانی: مقادیر پیش‌فرض (آفلاین)",
+                tone = if (world != null) BadgeTone.SUCCESS else BadgeTone.WARNING,
+            )
             val marketPrices = remember { IranTools.IRAN_COMMODITIES.associate { it.key to mutableStateOf(it.defaultPriceToman.toDouble()) } }
 
             IranTools.IRAN_COMMODITIES.forEach { c ->

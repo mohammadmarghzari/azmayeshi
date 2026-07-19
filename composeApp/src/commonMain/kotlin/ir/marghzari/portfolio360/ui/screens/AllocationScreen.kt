@@ -25,8 +25,8 @@ import ir.marghzari.portfolio360.charts.TreemapItem
 import ir.marghzari.portfolio360.state.AppState
 import ir.marghzari.portfolio360.theme.LocalChartColors
 import ir.marghzari.portfolio360.theme.chartColor
+import ir.marghzari.portfolio360.ui.components.EmptyState
 import ir.marghzari.portfolio360.ui.components.Card
-import ir.marghzari.portfolio360.ui.components.InfoBanner
 import ir.marghzari.portfolio360.ui.components.PortfolioSetupPanel
 import ir.marghzari.portfolio360.ui.components.SectionHeader
 
@@ -39,7 +39,7 @@ fun AllocationScreen(appState: AppState) {
         val weights = appState.weights
         val prices = appState.prices
         if (weights == null || prices == null) {
-            item { InfoBanner("ابتدا پرتفوی را محاسبه کنید.") }
+            item { EmptyState(title = "هنوز پرتفویی محاسبه نشده", hint = "از تب «تخصیص دارایی» داده را دریافت و پرتفوی را محاسبه کنید.") }
             return@LazyColumn
         }
 

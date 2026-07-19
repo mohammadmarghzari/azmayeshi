@@ -27,8 +27,8 @@ import ir.marghzari.portfolio360.core.network.YahooFinanceClient
 import ir.marghzari.portfolio360.state.AppState
 import ir.marghzari.portfolio360.state.PriceAlert
 import ir.marghzari.portfolio360.theme.LocalChartColors
+import ir.marghzari.portfolio360.ui.components.EmptyState
 import ir.marghzari.portfolio360.ui.components.Card
-import ir.marghzari.portfolio360.ui.components.InfoBanner
 import ir.marghzari.portfolio360.ui.components.SectionHeader
 import ir.marghzari.portfolio360.ui.components.SimpleDropdown
 import kotlinx.coroutines.Dispatchers
@@ -107,7 +107,7 @@ fun AlertsScreen(appState: AppState) {
                 }
             }
         } else {
-            item { InfoBanner("هنوز هشداری تعریف نشده.") }
+            item { EmptyState(title = "هنوز هشداری تعریف نشده", hint = "با فرم بالا اولین هشدار قیمتی خود را بسازید.") }
         }
 
         item {

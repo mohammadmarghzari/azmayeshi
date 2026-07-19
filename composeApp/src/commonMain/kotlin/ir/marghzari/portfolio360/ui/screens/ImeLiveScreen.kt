@@ -5,10 +5,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -33,10 +30,13 @@ import ir.marghzari.portfolio360.core.network.ImeClient
 import ir.marghzari.portfolio360.state.AppState
 import ir.marghzari.portfolio360.theme.LocalChartColors
 import ir.marghzari.portfolio360.theme.chartColor
+import ir.marghzari.portfolio360.ui.components.AppButton
 import ir.marghzari.portfolio360.ui.components.Card
-import ir.marghzari.portfolio360.ui.components.InfoBanner
+import ir.marghzari.portfolio360.ui.components.ErrorState
+import ir.marghzari.portfolio360.ui.components.EmptyState
 import ir.marghzari.portfolio360.ui.components.SectionHeader
 import ir.marghzari.portfolio360.ui.components.SimpleDropdown
+import ir.marghzari.portfolio360.ui.motion.SkeletonCard
 import kotlinx.coroutines.launch
 
 @Composable
@@ -64,24 +64,33 @@ fun ImeLiveScreen(appState: AppState) {
         item {
             SectionHeader("📡 IME Live — گواهی سپرده کالایی")
             Text("بورس کالای ایران · API رسمی · نرخ تازه‌سازی: ۶۰ ثانیه · منبع: api.ime.co.ir", style = MaterialTheme.typography.bodySmall, color = colors.muted)
-            Button(
-                onClick = { scope.launch { load() } }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = colors.blueAccent),
-            ) { Text("🔄 بروزرسانی") }
+            AppButton(
+                text = "🔄 بروزرسانی",
+                onClick = { scope.launch { load() } },
+                loading = loading,
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            )
         }
 
         if (loading) {
-            item { CircularProgressIndicator() }
+            item { SkeletonCard(lines = 5) }
         } else if (loadError != null) {
             item {
-                InfoBanner("❌ خطا در اتصال به API: ${loadError}")
+                ErrorState(message = "خطا در اتصال به API: ${loadError}", onRetry = { scope.launch { load() } })
                 Text(
                     "راه‌حل‌های احتمالی: ① دامنه api.ime.co.ir را در egress settings اضافه کنید. ② برنامه را روی سرور ایرانی اجرا کنید.",
                     style = MaterialTheme.typography.labelSmall, color = colors.muted, modifier = Modifier.padding(top = 6.dp),
                 )
             }
         } else if (quotes.isEmpty()) {
-            item { InfoBanner("داده‌ای یافت نشد.") }
+            item {
+                EmptyState(
+                    title = "داده‌ای یافت نشد",
+                    hint = "بازار ممکن است بسته باشد؛ با دکمه بروزرسانی دوباره امتحان کنید.",
+                    actionText = "بروزرسانی",
+                    onAction = { scope.launch { load() } },
+                )
+            }
         } else {
             item {
                 SectionHeader("① تابلوی زنده — آخرین قیمت‌ها")
@@ -187,7 +196,8 @@ private fun HistorySection(appState: AppState, quotes: List<ImeQuote>) {
     var histError by remember { mutableStateOf<String?>(null) }
 
     SimpleDropdown("نماد تاریخچه", histSymbol, quotes, { "${it.commodity} · ${it.contractCode}" }, { histSymbol = it })
-    Button(
+    AppButton(
+        text = "دریافت تاریخچه",
         onClick = {
             scope.launch {
                 when (val result = appState.ime.fetchHistory(histSymbol.contractCode, fromDate, toDate)) {
@@ -199,8 +209,8 @@ private fun HistorySection(appState: AppState, quotes: List<ImeQuote>) {
                 }
             }
         },
-        modifier = Modifier.fillMaxWidth().padding(top = 8.dp), colors = ButtonDefaults.buttonColors(containerColor = colors.blueAccent),
-    ) { Text("دریافت تاریخچه") }
+        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+    )
 
     histError?.let { Text(it, color = colors.red, modifier = Modifier.padding(top = 6.dp)) }
 

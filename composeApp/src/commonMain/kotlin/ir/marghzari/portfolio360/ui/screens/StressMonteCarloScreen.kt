@@ -29,8 +29,8 @@ import ir.marghzari.portfolio360.core.math.StressTest
 import ir.marghzari.portfolio360.core.math.StressTestRow
 import ir.marghzari.portfolio360.state.AppState
 import ir.marghzari.portfolio360.theme.LocalChartColors
+import ir.marghzari.portfolio360.ui.components.EmptyState
 import ir.marghzari.portfolio360.ui.components.Card
-import ir.marghzari.portfolio360.ui.components.InfoBanner
 import ir.marghzari.portfolio360.ui.components.MetricTile
 import ir.marghzari.portfolio360.ui.components.SectionHeader
 
@@ -40,7 +40,7 @@ fun StressMonteCarloScreen(appState: AppState) {
     val weights = appState.weights
     val prices = appState.prices
     if (weights == null || prices == null) {
-        InfoBanner("ابتدا پرتفوی را محاسبه کنید.")
+        EmptyState(title = "هنوز پرتفویی محاسبه نشده", hint = "از تب «تخصیص دارایی» داده را دریافت و پرتفوی را محاسبه کنید.")
         return
     }
 

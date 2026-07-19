@@ -23,8 +23,8 @@ import ir.marghzari.portfolio360.core.math.PortfolioEngine
 import ir.marghzari.portfolio360.core.math.Stats
 import ir.marghzari.portfolio360.state.AppState
 import ir.marghzari.portfolio360.theme.LocalChartColors
+import ir.marghzari.portfolio360.ui.components.EmptyState
 import ir.marghzari.portfolio360.ui.components.Card
-import ir.marghzari.portfolio360.ui.components.InfoBanner
 import ir.marghzari.portfolio360.ui.components.MetricTile
 import ir.marghzari.portfolio360.ui.components.SectionHeader
 import kotlin.math.abs
@@ -37,7 +37,7 @@ fun RiskReturnScreen(appState: AppState) {
     val prices = appState.prices
 
     if (metrics == null || weights == null || prices == null) {
-        InfoBanner("ابتدا پرتفوی را محاسبه کنید.")
+        EmptyState(title = "هنوز پرتفویی محاسبه نشده", hint = "از تب «تخصیص دارایی» داده را دریافت و پرتفوی را محاسبه کنید.")
         return
     }
 

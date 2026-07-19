@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -21,6 +20,7 @@ import ir.marghzari.portfolio360.charts.BarSeries
 import ir.marghzari.portfolio360.core.math.IranTools
 import ir.marghzari.portfolio360.state.AppState
 import ir.marghzari.portfolio360.theme.LocalChartColors
+import ir.marghzari.portfolio360.ui.components.AppTextField
 import ir.marghzari.portfolio360.ui.components.Card
 import ir.marghzari.portfolio360.ui.components.MetricTile
 import ir.marghzari.portfolio360.ui.components.SectionHeader
@@ -30,9 +30,10 @@ internal fun NumberInput(label: String, value: Double, onChange: (Double) -> Uni
     var text by remember(value) { mutableStateOf(if (value == value.toLong().toDouble()) value.toLong().toString() else value.toString()) }
     Card(modifier = modifier) {
         Text(label, style = MaterialTheme.typography.labelSmall, color = LocalChartColors.current.muted)
-        OutlinedTextField(
+        AppTextField(
             value = text, onValueChange = { text = it; it.toDoubleOrNull()?.let(onChange) },
-            modifier = Modifier.fillMaxWidth().padding(top = 4.dp), singleLine = true,
+            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+            isError = text.toDoubleOrNull() == null,
         )
     }
 }

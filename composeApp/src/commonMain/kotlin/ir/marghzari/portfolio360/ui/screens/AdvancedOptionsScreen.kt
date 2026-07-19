@@ -33,6 +33,7 @@ import ir.marghzari.portfolio360.core.model.RiskInputs
 import ir.marghzari.portfolio360.state.AppState
 import ir.marghzari.portfolio360.state.HedgedAsset
 import ir.marghzari.portfolio360.theme.LocalChartColors
+import ir.marghzari.portfolio360.ui.components.EmptyState
 import ir.marghzari.portfolio360.ui.components.Card
 import ir.marghzari.portfolio360.ui.components.MetricTile
 import ir.marghzari.portfolio360.ui.components.SectionHeader
@@ -291,7 +292,7 @@ private fun RollingCcTool(appState: AppState) {
     val colors = LocalChartColors.current
     val prices = appState.prices
     if (prices == null) {
-        Text("ابتدا داده دانلود کنید.", color = colors.muted)
+        EmptyState(title = "هنوز داده‌ای دریافت نشده", hint = "از تب «تخصیص دارایی» داده پرتفوی را دانلود کنید.")
         return
     }
     var ticker by remember { mutableStateOf(prices.tickers.first()) }

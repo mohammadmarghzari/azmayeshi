@@ -64,9 +64,9 @@ import ir.marghzari.portfolio360.core.network.TickerHistory
 import ir.marghzari.portfolio360.state.AppState
 import ir.marghzari.portfolio360.theme.LocalChartColors
 import ir.marghzari.portfolio360.theme.chartColor
+import ir.marghzari.portfolio360.ui.components.EmptyState
 import ir.marghzari.portfolio360.ui.components.Card
 import ir.marghzari.portfolio360.ui.components.GlowButton
-import ir.marghzari.portfolio360.ui.components.InfoBanner
 import ir.marghzari.portfolio360.ui.components.MetricTile
 import ir.marghzari.portfolio360.ui.components.SectionHeader
 import ir.marghzari.portfolio360.ui.components.SimpleDropdown
@@ -95,7 +95,7 @@ private fun sliceRange(dates: List<LocalDate>, closes: List<Double>, range: Rang
 @Composable
 fun PriceChartScreen(appState: AppState) {
     val colors = LocalChartColors.current
-    val prices = appState.prices ?: run { InfoBanner("ابتدا پرتفوی را محاسبه کنید."); return }
+    val prices = appState.prices ?: run { EmptyState(title = "هنوز پرتفویی محاسبه نشده", hint = "از تب «تخصیص دارایی» داده را دریافت و پرتفوی را محاسبه کنید."); return }
     val scope = rememberCoroutineScope()
 
     var selectedTicker by remember(prices) { mutableStateOf(prices.tickers.first()) }

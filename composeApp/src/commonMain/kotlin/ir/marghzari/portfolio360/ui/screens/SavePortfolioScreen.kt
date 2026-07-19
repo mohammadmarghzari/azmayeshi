@@ -27,8 +27,8 @@ import ir.marghzari.portfolio360.state.AppState
 import ir.marghzari.portfolio360.state.SavedPortfolio
 import ir.marghzari.portfolio360.theme.LocalChartColors
 import ir.marghzari.portfolio360.theme.chartColor
+import ir.marghzari.portfolio360.ui.components.EmptyState
 import ir.marghzari.portfolio360.ui.components.Card
-import ir.marghzari.portfolio360.ui.components.InfoBanner
 import ir.marghzari.portfolio360.ui.components.MetricTile
 import ir.marghzari.portfolio360.ui.components.SectionHeader
 
@@ -66,13 +66,13 @@ fun SavePortfolioScreen(appState: AppState) {
                 ) { Text("💾 ذخیره") }
                 message?.let { Text(it, color = colors.green, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 6.dp)) }
             } else {
-                InfoBanner("ابتدا پرتفوی را محاسبه کنید تا بتوانید آن را ذخیره کنید.")
+                EmptyState(title = "هنوز پرتفویی محاسبه نشده", hint = "پس از محاسبه پرتفوی می‌توانید آن را اینجا ذخیره کنید.")
             }
         }
 
         item { SectionHeader("پرتفوی‌های ذخیره‌شده") }
         if (appState.savedPortfolios.isEmpty()) {
-            item { InfoBanner("هنوز پرتفویی ذخیره نشده.") }
+            item { EmptyState(title = "هنوز پرتفویی ذخیره نشده", hint = "پس از محاسبه، پرتفوی را با یک نام ذخیره کنید تا اینجا فهرست شود.") }
         } else {
             items(appState.savedPortfolios.values.toList()) { sp ->
                 Card(modifier = Modifier.fillMaxWidth()) {
