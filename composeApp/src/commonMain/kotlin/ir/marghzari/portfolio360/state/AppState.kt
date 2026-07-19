@@ -44,7 +44,7 @@ class AppState {
     val worldCommodities = WorldCommodityClient()
 
     // Theme
-    var isDarkTheme by mutableStateOf(true)
+    var isDarkTheme by mutableStateOf(false)
 
     // Sidebar / global settings
     var periodCode by mutableStateOf("2y")

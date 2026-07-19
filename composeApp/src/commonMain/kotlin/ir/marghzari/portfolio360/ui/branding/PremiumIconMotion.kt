@@ -34,8 +34,8 @@ import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.random.Random
 
-private val ORBIT_GREEN_BRIGHT = Color(0xFF5DD62C)
-private val ORBIT_GREEN_DARK = Color(0xFF337418)
+private val ORBIT_VIOLET = Color(0xFF7C3AED)
+private val ORBIT_VIOLET_SOFT = Color(0xFFA78BFA)
 
 private class OrbitParticle(val radiusFactor: Float, val speed: Float, val phase: Float, val color: Color)
 
@@ -44,7 +44,7 @@ private val orbitParticles = List(4) { i ->
         radiusFactor = 0.78f + Random.nextFloat() * 0.22f,
         speed = 0.55f + Random.nextFloat() * 0.5f,
         phase = Random.nextFloat() * 6.28f,
-        color = if (i % 2 == 0) ORBIT_GREEN_BRIGHT else ORBIT_GREEN_DARK,
+        color = if (i % 2 == 0) ORBIT_VIOLET else ORBIT_VIOLET_SOFT,
     )
 }
 
@@ -117,7 +117,7 @@ fun PremiumIconMotion(
             Canvas(modifier = Modifier.size(boxSize)) {
                 rotate(degrees = ringRotation) {
                     drawCircle(
-                        brush = Brush.sweepGradient(listOf(ORBIT_GREEN_BRIGHT, ORBIT_GREEN_DARK, ORBIT_GREEN_BRIGHT)),
+                        brush = Brush.sweepGradient(listOf(ORBIT_VIOLET, ORBIT_VIOLET_SOFT, ORBIT_VIOLET)),
                         radius = size.minDimension / 2f * 0.94f,
                         style = Stroke(width = 1.4.dp.toPx(), cap = StrokeCap.Round),
                         alpha = ringPulse,

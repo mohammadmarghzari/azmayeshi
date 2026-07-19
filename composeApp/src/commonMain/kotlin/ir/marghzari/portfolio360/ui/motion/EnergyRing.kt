@@ -23,7 +23,7 @@ import kotlin.math.sin
 @Composable
 fun Modifier.energyRing(
     active: Boolean = true,
-    colors: List<Color> = listOf(Color(0xFF5DD62C), Color(0xFF337418)),
+    colors: List<Color> = listOf(Color(0xFF7C3AED), Color(0xFFA78BFA)),
     strokeWidth: Dp = 1.6.dp,
     cornerRadius: Dp = 16.dp,
 ): Modifier {

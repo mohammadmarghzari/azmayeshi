@@ -3,7 +3,7 @@ package ir.marghzari.portfolio360.ui.motion
 import androidx.compose.ui.graphics.Color
 import ir.marghzari.portfolio360.core.math.IranTools
 
-private val CRYPTO_GLOW = listOf(Color(0xFF5DD62C), Color(0xFF337418))
+private val CRYPTO_GLOW = listOf(Color(0xFF7C3AED), Color(0xFFA78BFA))
 private val GOLD_GLOW = listOf(Color(0xFFE8C87A), Color(0xFFC9A227))
 private val SILVER_GLOW = listOf(Color(0xFFD8DCE6), Color(0xFFA9B0BD))
 private val BRONZE_GLOW = listOf(Color(0xFFD98A4A), Color(0xFF8A5A2A))

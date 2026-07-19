@@ -26,38 +26,38 @@ data class BlueprintColors(
     val isDark: Boolean,
 )
 
-/** Brand palette: near-black + neon green, per the user's reference (Oscillate Marketing card). */
-private val NEON_GREEN = Color(0xFF5DD62C)
-private val DEEP_GREEN = Color(0xFF337418)
-private val NEAR_BLACK = Color(0xFF0F0F0F)
-private val CARD_DARK = Color(0xFF202020)
-private val OFF_WHITE = Color(0xFFF8F8F8)
+/** Brand palette: clean light fintech + violet accent, per the user's "finvest" dashboard reference. */
+private val VIOLET = Color(0xFF7C3AED)
+private val VIOLET_SOFT = Color(0xFFA78BFA)
+private val PAGE_GRAY = Color(0xFFF4F4F6)
+private val CARD_WHITE = Color(0xFFFFFFFF)
+private val INK = Color(0xFF17171C)
 
 val LightBlueprint = BlueprintColors(
-    bg = OFF_WHITE, bg2 = Color(0xFFECECEC), panel = Color(0xFFE0E0E0), card = Color(0xFFEFEFEF),
-    accent = Color(0xFF1A1A18), accent2 = Color(0xFF555550), gold = Color(0xFF8A6A1A),
-    green = DEEP_GREEN, red = Color(0xFF8A2020),
-    textPrimary = Color(0xFF111110), silver = Color(0xFF444440), muted = Color(0xFF888882),
-    sidebarBg = Color(0xFFE6E6E6),
-    plotBg = Color(0xFFECECEC), plotGrid = Color(0x1A3C3C37), plotTick = Color(0xFF444440), plotText = Color(0xFF222220),
-    riskGeo = Color(0xFF7A3A00), riskMon = Color(0xFF1A4A7A), riskSys = Color(0xFF4A1A6A),
-    blueAccent = NEON_GREEN,
+    bg = PAGE_GRAY, bg2 = Color(0xFFECECF1), panel = Color(0xFFE9E9EF), card = CARD_WHITE,
+    accent = INK, accent2 = Color(0xFF55555F), gold = Color(0xFFB7791F),
+    green = Color(0xFF16A34A), red = Color(0xFFDC2626),
+    textPrimary = INK, silver = Color(0xFF4B4B55), muted = Color(0xFF8A8A94),
+    sidebarBg = CARD_WHITE,
+    plotBg = CARD_WHITE, plotGrid = Color(0x14202030), plotTick = Color(0xFF6B6B75), plotText = Color(0xFF2A2A32),
+    riskGeo = Color(0xFFB45309), riskMon = Color(0xFF1D4ED8), riskSys = Color(0xFF9333EA),
+    blueAccent = VIOLET,
     isDark = false,
 )
 
 val DarkBlueprint = BlueprintColors(
-    bg = NEAR_BLACK, bg2 = Color(0xFF161616), panel = Color(0xFF1A1A1A), card = CARD_DARK,
-    accent = Color(0xFFB0B0B0), accent2 = Color(0xFF888888), gold = Color(0xFFC8A84B),
-    green = NEON_GREEN, red = Color(0xFFCC5555),
-    textPrimary = OFF_WHITE, silver = Color(0xFF909090), muted = Color(0xFF666666),
-    sidebarBg = NEAR_BLACK,
-    plotBg = Color(0xFF161616), plotGrid = Color(0x0DFFFFFF), plotTick = Color(0xFF888888), plotText = Color(0xFFC0C0C0),
+    bg = Color(0xFF131318), bg2 = Color(0xFF1A1A21), panel = Color(0xFF1E1E26), card = Color(0xFF202028),
+    accent = Color(0xFFB0B0C0), accent2 = Color(0xFF8888A0), gold = Color(0xFFC8A84B),
+    green = Color(0xFF4ADE80), red = Color(0xFFF87171),
+    textPrimary = Color(0xFFF5F5FA), silver = Color(0xFF9090A0), muted = Color(0xFF6A6A78),
+    sidebarBg = Color(0xFF131318),
+    plotBg = Color(0xFF1A1A21), plotGrid = Color(0x0DFFFFFF), plotTick = Color(0xFF8888A0), plotText = Color(0xFFC0C0CC),
     riskGeo = Color(0xFFE8945A), riskMon = Color(0xFF5A9BE8), riskSys = Color(0xFFB07AD4),
-    blueAccent = NEON_GREEN,
+    blueAccent = VIOLET_SOFT,
     isDark = true,
 )
 
-val LocalBlueprintColors = staticCompositionLocalOf { DarkBlueprint }
+val LocalBlueprintColors = staticCompositionLocalOf { LightBlueprint }
 
 private val monoFontFamily = FontFamily.Monospace
 private val bodyFontFamily = FontFamily.SansSerif

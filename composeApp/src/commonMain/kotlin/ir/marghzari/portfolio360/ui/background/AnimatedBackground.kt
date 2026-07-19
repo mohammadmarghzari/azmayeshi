@@ -126,8 +126,8 @@ fun AnimatedBackground(
                     val twinkle = (sin(t * 6.28f * 2f + e.phase).toFloat() * 0.5f + 0.5f)
                     val alpha = (0.08f + 0.18f * twinkle) * (1f - kotlin.math.abs(t - 0.5f) * 0.6f)
                     if (alpha > 0.01f) {
-                        drawCircle(color = Color(0xFFE8C87A), radius = e.size * 2.4f, center = Offset(x, y), alpha = (alpha * 0.25f).coerceIn(0f, 1f))
-                        drawCircle(color = Color(0xFFF4E4B0), radius = e.size, center = Offset(x, y), alpha = alpha.coerceIn(0f, 1f))
+                        drawCircle(color = Color(0xFF7C3AED), radius = e.size * 2.4f, center = Offset(x, y), alpha = (alpha * 0.25f).coerceIn(0f, 1f))
+                        drawCircle(color = Color(0xFFA78BFA), radius = e.size, center = Offset(x, y), alpha = alpha.coerceIn(0f, 1f))
                     }
                 }
             }

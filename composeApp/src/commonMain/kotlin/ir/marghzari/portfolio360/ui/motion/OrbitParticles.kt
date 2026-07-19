@@ -17,7 +17,7 @@ import kotlin.math.sin
  */
 @Composable
 fun Modifier.orbitParticles(
-    colors: List<Color> = listOf(Color(0xFF5DD62C), Color(0xFF337418)),
+    colors: List<Color> = listOf(Color(0xFF7C3AED), Color(0xFFA78BFA)),
     count: Int = 4,
     seed: Any? = null,
 ): Modifier {

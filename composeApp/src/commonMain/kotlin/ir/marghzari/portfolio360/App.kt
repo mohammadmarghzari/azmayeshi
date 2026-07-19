@@ -41,7 +41,9 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
+import androidx.compose.material3.NavigationRailItemDefaults
 import androidx.compose.material3.NavigationDrawerItem
+import androidx.compose.material3.NavigationDrawerItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -58,6 +60,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import ir.marghzari.portfolio360.nav.Destination
 import ir.marghzari.portfolio360.state.AppState
@@ -151,10 +154,17 @@ private fun WideLayout(appState: AppState) {
                         icon = {
                             PremiumIconMotion(
                                 icon = dest.icon, contentDescription = dest.labelFa, active = dest == selected,
-                                tint = if (dest == selected) colors.blueAccent else colors.muted,
+                                tint = if (dest == selected) Color.White else colors.muted,
                             )
                         },
                         label = { Text(dest.labelFa, style = MaterialTheme.typography.labelSmall) },
+                        colors = NavigationRailItemDefaults.colors(
+                            indicatorColor = colors.blueAccent,
+                            selectedIconColor = Color.White,
+                            selectedTextColor = colors.blueAccent,
+                            unselectedIconColor = colors.muted,
+                            unselectedTextColor = colors.muted,
+                        ),
                     )
                 }
                 IconButton(onClick = { appState.isDarkTheme = !appState.isDarkTheme }, modifier = Modifier.padding(top = 12.dp)) {
@@ -199,11 +209,19 @@ private fun CompactLayout(appState: AppState) {
                             icon = {
                                 PremiumIconMotion(
                                     icon = dest.icon, contentDescription = null, active = dest == selected,
-                                    tint = if (dest == selected) colors.blueAccent else colors.muted,
+                                    tint = if (dest == selected) Color.White else colors.muted,
                                 )
                             },
                             onClick = { selected = dest; scope.launch { drawerState.close() } },
                             modifier = Modifier.padding(horizontal = 8.dp),
+                            colors = NavigationDrawerItemDefaults.colors(
+                                selectedContainerColor = colors.blueAccent,
+                                selectedIconColor = Color.White,
+                                selectedTextColor = Color.White,
+                                unselectedContainerColor = Color.Transparent,
+                                unselectedIconColor = colors.muted,
+                                unselectedTextColor = colors.textPrimary,
+                            ),
                         )
                     }
                 }
