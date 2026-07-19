@@ -1,5 +1,12 @@
 package ir.marghzari.portfolio360.ui.components
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -339,12 +346,21 @@ fun HeroMetric(
     Column(modifier = modifier) {
         Text(label, style = MaterialTheme.typography.labelMedium, color = colors.muted)
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
-            Text(
-                value,
-                style = MaterialTheme.typography.titleLarge.copy(fontSize = 28.sp, fontWeight = FontWeight.Bold),
-                color = colors.textPrimary,
-                modifier = Modifier.padding(top = Spacing.xs),
-            )
+            AnimatedContent(
+                targetState = value,
+                transitionSpec = {
+                    (fadeIn(tween(240)) + slideInVertically(tween(240)) { it / 3 }) togetherWith
+                        (fadeOut(tween(160)) + slideOutVertically(tween(160)) { -it / 3 })
+                },
+                label = "hero-metric-value",
+            ) { v ->
+                Text(
+                    v,
+                    style = MaterialTheme.typography.titleLarge.copy(fontSize = 28.sp, fontWeight = FontWeight.Bold),
+                    color = colors.textPrimary,
+                    modifier = Modifier.padding(top = Spacing.xs),
+                )
+            }
             if (delta != null) {
                 StatusBadge(
                     text = delta,

@@ -1,6 +1,11 @@
 package ir.marghzari.portfolio360.ui.screens
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
@@ -199,43 +204,57 @@ fun PriceChartScreen(appState: AppState) {
                 }
             }
 
-            if (showCompareAll) {
-                item {
-                    var normalized by remember { mutableStateOf(true) }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        RadioButton(selected = normalized, onClick = { normalized = true })
-                        Text("نرمال‌شده (base=100)", modifier = Modifier.padding(end = 12.dp))
-                        RadioButton(selected = !normalized, onClick = { normalized = false })
-                        Text("قیمت خام")
-                    }
-                    val series = prices.tickers.mapIndexed { i, ticker ->
-                        val col = prices.column(ticker)
-                        val values = if (normalized) col.map { it / col[0] * 100 } else col.toList()
-                        LineSeries(ticker, chartColor(i), values)
-                    }
-                    Card(modifier = Modifier.fillMaxWidth().padding(top = 10.dp)) {
-                        LineChart(
-                            series = series, title = "PRICE CHART",
-                            yFormatter = { if (normalized) "%.0f".format(it) else "$%.2f".format(it) },
-                            height = 380.dp,
-                        )
+            item {
+                AnimatedVisibility(
+                    visible = showCompareAll,
+                    enter = expandVertically(tween(320)) + fadeIn(tween(320)),
+                    exit = shrinkVertically(tween(240)) + fadeOut(tween(180)),
+                ) {
+                    Column {
+                        var normalized by remember { mutableStateOf(true) }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            RadioButton(selected = normalized, onClick = { normalized = true })
+                            Text("نرمال‌شده (base=100)", modifier = Modifier.padding(end = 12.dp))
+                            RadioButton(selected = !normalized, onClick = { normalized = false })
+                            Text("قیمت خام")
+                        }
+                        val series = prices.tickers.mapIndexed { i, ticker ->
+                            val col = prices.column(ticker)
+                            val values = if (normalized) col.map { it / col[0] * 100 } else col.toList()
+                            LineSeries(ticker, chartColor(i), values)
+                        }
+                        Card(modifier = Modifier.fillMaxWidth().padding(top = 10.dp)) {
+                            LineChart(
+                                series = series, title = "PRICE CHART",
+                                yFormatter = { if (normalized) "%.0f".format(it) else "$%.2f".format(it) },
+                                height = 380.dp,
+                            )
+                        }
                     }
                 }
-                if (prices.nAssets >= 2) {
-                    item {
-                        SectionHeader("Correlation Matrix")
-                        val returns = prices.dailyReturns()
-                        val n = prices.nAssets
-                        val corr = Array(n) { i ->
-                            DoubleArray(n) { j ->
-                                Stats.correlation(DoubleArray(returns.size) { returns[it][i] }, DoubleArray(returns.size) { returns[it][j] })
+            }
+            if (prices.nAssets >= 2) {
+                item {
+                    AnimatedVisibility(
+                        visible = showCompareAll,
+                        enter = expandVertically(tween(320)) + fadeIn(tween(320)),
+                        exit = shrinkVertically(tween(240)) + fadeOut(tween(180)),
+                    ) {
+                        Column {
+                            SectionHeader("Correlation Matrix")
+                            val returns = prices.dailyReturns()
+                            val n = prices.nAssets
+                            val corr = Array(n) { i ->
+                                DoubleArray(n) { j ->
+                                    Stats.correlation(DoubleArray(returns.size) { returns[it][i] }, DoubleArray(returns.size) { returns[it][j] })
+                                }
                             }
-                        }
-                        Card(modifier = Modifier.fillMaxWidth()) {
-                            HeatmapChart(
-                                rowLabels = prices.tickers, colLabels = prices.tickers, values = corr,
-                                title = "CORRELATION MATRIX", height = (60 + n * 34).dp,
-                            )
+                            Card(modifier = Modifier.fillMaxWidth()) {
+                                HeatmapChart(
+                                    rowLabels = prices.tickers, colLabels = prices.tickers, values = corr,
+                                    title = "CORRELATION MATRIX", height = (60 + n * 34).dp,
+                                )
+                            }
                         }
                     }
                 }

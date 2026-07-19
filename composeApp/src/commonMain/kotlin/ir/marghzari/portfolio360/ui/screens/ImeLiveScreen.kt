@@ -39,6 +39,7 @@ import ir.marghzari.portfolio360.ui.components.EmptyState
 import ir.marghzari.portfolio360.ui.components.SectionHeader
 import ir.marghzari.portfolio360.ui.components.SimpleDropdown
 import ir.marghzari.portfolio360.ui.motion.SkeletonCard
+import ir.marghzari.portfolio360.ui.motion.StaggerIn
 import kotlinx.coroutines.launch
 
 @Composable
@@ -96,15 +97,17 @@ fun ImeLiveScreen(appState: AppState) {
             item {
                 SectionHeader("① تابلوی زنده — آخرین قیمت‌ها")
                 Card(modifier = Modifier.fillMaxWidth()) {
-                    quotes.forEach { q ->
-                        AssetRow(
-                            symbol = q.commodity,
-                            title = q.commodity,
-                            caption = q.contractCode,
-                            value = "%,.0f ریال".format(q.pl),
-                            delta = "%+.2f%%".format(q.plChangePct),
-                            deltaPositive = q.plChangePct >= 0,
-                        )
+                    quotes.forEachIndexed { idx, q ->
+                        StaggerIn(index = idx) {
+                            AssetRow(
+                                symbol = q.commodity,
+                                title = q.commodity,
+                                caption = q.contractCode,
+                                value = "%,.0f ریال".format(q.pl),
+                                delta = "%+.2f%%".format(q.plChangePct),
+                                deltaPositive = q.plChangePct >= 0,
+                            )
+                        }
                     }
                     BarChart(
                         categories = quotes.map { it.commodity }, series = listOf(BarSeries("تغییر %", colors.blueAccent, quotes.map { it.plChangePct })),

@@ -9,7 +9,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlin.math.sin
@@ -19,6 +19,10 @@ import kotlin.math.sin
  * active tab, a selected asset, a focused/hero card, or a selected dropdown value. Reserved for
  * "this one thing matters right now" rather than every card, so it stays a meaningful signal
  * instead of visual noise.
+ *
+ * The rotation animates the sweep gradient's *phase* while the stroke geometry stays axis-aligned
+ * and hugs the element's border. (Rotating the rect itself — the previous approach — made the
+ * ring's edges sweep straight across a non-square card's content as stray arcs.)
  */
 @Composable
 fun Modifier.energyRing(
@@ -37,15 +41,32 @@ fun Modifier.energyRing(
         val strokePx = strokeWidth.toPx()
         val insetPx = strokePx / 2f + 1.dp.toPx()
         val pulse = 0.40f + 0.25f * (sin(clock.time.value * 6.2831855f * 3f) * 0.5f + 0.5f)
-        rotate(degrees = clock.ringRotation.value) {
-            drawRoundRect(
-                brush = Brush.sweepGradient(colors + colors.first()),
-                topLeft = Offset(insetPx, insetPx),
-                size = Size(size.width - insetPx * 2, size.height - insetPx * 2),
-                cornerRadius = CornerRadius(cornerRadius.toPx()),
-                style = Stroke(width = strokePx),
-                alpha = pulse,
-            )
-        }
+        val phase = clock.ringRotation.value / 360f
+        drawRoundRect(
+            brush = Brush.sweepGradient(*shiftedStops(colors, phase)),
+            topLeft = Offset(insetPx, insetPx),
+            size = Size(size.width - insetPx * 2, size.height - insetPx * 2),
+            cornerRadius = CornerRadius(cornerRadius.toPx()),
+            style = Stroke(width = strokePx),
+            alpha = pulse,
+        )
     }
+}
+
+private const val RING_STOP_SAMPLES = 12
+
+/** Fixed-position gradient stops sampling the cyclic palette shifted by [phase] (0..1). */
+private fun shiftedStops(colors: List<Color>, phase: Float): Array<Pair<Float, Color>> =
+    Array(RING_STOP_SAMPLES + 1) { j ->
+        val pos = j / RING_STOP_SAMPLES.toFloat()
+        pos to cyclicColor(colors, pos + phase)
+    }
+
+/** Piecewise-linear interpolation over [colors] treated as a closed loop. */
+private fun cyclicColor(colors: List<Color>, t: Float): Color {
+    if (colors.size == 1) return colors.first()
+    val x = ((t % 1f) + 1f) % 1f * colors.size
+    val i = x.toInt() % colors.size
+    val next = (i + 1) % colors.size
+    return lerp(colors[i], colors[next], x - x.toInt())
 }

@@ -26,6 +26,7 @@ import ir.marghzari.portfolio360.state.AppState
 import ir.marghzari.portfolio360.theme.LocalChartColors
 import ir.marghzari.portfolio360.theme.chartColor
 import ir.marghzari.portfolio360.ui.components.AssetRow
+import ir.marghzari.portfolio360.ui.motion.StaggerIn
 import ir.marghzari.portfolio360.ui.components.EmptyState
 import ir.marghzari.portfolio360.ui.components.Card
 import ir.marghzari.portfolio360.ui.components.HeroMetric
@@ -70,14 +71,16 @@ fun AllocationScreen(appState: AppState) {
             SectionHeader("دارایی‌ها")
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxWidth()) {
                 Card(modifier = Modifier.weight(1f)) {
-                    sortedIdx.forEach { i ->
+                    sortedIdx.forEachIndexed { rank, i ->
                         val w = weights[i] * 100
-                        AssetRow(
-                            symbol = prices.tickers[i],
-                            title = prices.tickers[i],
-                            caption = "وزن ${w.pct(2)}",
-                            value = (w / 100 * totalCapital).money(),
-                        )
+                        StaggerIn(index = rank) {
+                            AssetRow(
+                                symbol = prices.tickers[i],
+                                title = prices.tickers[i],
+                                caption = "وزن ${w.pct(2)}",
+                                value = (w / 100 * totalCapital).money(),
+                            )
+                        }
                     }
                 }
                 Card(modifier = Modifier.weight(1f)) {
