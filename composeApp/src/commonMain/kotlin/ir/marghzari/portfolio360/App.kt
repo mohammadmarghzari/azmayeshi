@@ -57,11 +57,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import ir.marghzari.portfolio360.data.AppPersistence
 import ir.marghzari.portfolio360.nav.Destination
 import ir.marghzari.portfolio360.state.AppState
 import ir.marghzari.portfolio360.theme.LocalChartColors
@@ -92,6 +94,7 @@ import ir.marghzari.portfolio360.ui.screens.StyleCompareScreen
 import ir.marghzari.portfolio360.ui.screens.TransactionsScreen
 import ir.marghzari.portfolio360.ui.screens.WatchlistScreen
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 
 private const val SPLASH_DURATION_MS = 2000
@@ -99,7 +102,8 @@ private const val SPLASH_DURATION_MS = 2000
 /** Root composable, shared verbatim across the Android and Desktop targets. */
 @Composable
 fun App() {
-    val appState = remember { AppState() }
+    val persistence = remember { AppPersistence() }
+    val appState = remember { AppState().also { persistence.restore(it) } }
     var showSplash by remember { mutableStateOf(true) }
     var splashProgress by remember { mutableStateOf(0f) }
 
@@ -110,6 +114,14 @@ fun App() {
             delay((SPLASH_DURATION_MS / steps).toLong())
         }
         showSplash = false
+    }
+
+    // Persist on change: snapshotFlow re-emits whenever any captured field mutates; the first
+    // emission (the state just restored) is skipped so launching the app never rewrites storage.
+    LaunchedEffect(Unit) {
+        snapshotFlow { persistence.capture(appState) }
+            .drop(1)
+            .collect { persistence.save(it) }
     }
 
     Portfolio360Theme(darkTheme = appState.isDarkTheme) {

@@ -43,6 +43,7 @@ kotlin {
                 implementation(libs.kotlinx.serialization.json)
 
                 implementation(libs.haze)
+                implementation(libs.multiplatform.settings.no.arg)
             }
         }
         val androidMain by getting {

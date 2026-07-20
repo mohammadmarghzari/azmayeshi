@@ -53,7 +53,7 @@ private fun positionsOf(txs: List<Transaction>): List<Position> =
 /**
  * Manual trade journal: record real buys/sells, see net positions with average cost, and — when
  * the symbol also exists in the downloaded portfolio data — unrealized P&L against the latest
- * close. Session-scoped (in-memory) like saved portfolios; persistence is a later milestone.
+ * close. The journal is persisted across launches via AppPersistence.
  */
 @Composable
 fun TransactionsScreen(appState: AppState) {

@@ -9,6 +9,7 @@ import ir.marghzari.portfolio360.core.model.PortfolioStyle
 import ir.marghzari.portfolio360.core.model.PriceSeries
 import ir.marghzari.portfolio360.core.model.RiskInputs
 import ir.marghzari.portfolio360.data.MarketRepositories
+import kotlinx.serialization.Serializable
 
 /** Portfolio saved by the user in the "ذخیره پرتفوی" tab. */
 data class SavedPortfolio(
@@ -21,11 +22,13 @@ data class SavedPortfolio(
     val savedAtLabel: String,
 )
 
+@Serializable
 data class PriceAlert(val symbol: String, val isAbove: Boolean, val threshold: Double, var currentPrice: Double? = null, var triggered: Boolean = false)
 
 data class HedgedAsset(val ticker: String, val strike: Double, val spot: Double, val premium: Double, val days: Int)
 
 /** One row of the user's manual trade journal ("دفتر تراکنش‌ها"). */
+@Serializable
 data class Transaction(
     val id: Long,
     val symbol: String,
@@ -36,6 +39,7 @@ data class Transaction(
     val note: String = "",
 )
 
+@Serializable
 data class FearGreedAlertConfig(val lowerBound: Int = 20, val upperBound: Int = 80, var lastScore: Double? = null)
 
 /**
@@ -96,7 +100,7 @@ class AppState(
     // Starred tickers on the asset price screen
     var favoriteTickers by mutableStateOf(setOf<String>())
 
-    // Manual trade journal (فاز ۵ — دفتر تراکنش‌ها). In-memory for now, like savedPortfolios.
+    // Manual trade journal (فاز ۵ — دفتر تراکنش‌ها). Persisted across launches via AppPersistence.
     var transactions by mutableStateOf<List<Transaction>>(emptyList())
 
     // Global "reduce motion" switch for the app-wide decorative motion system.
