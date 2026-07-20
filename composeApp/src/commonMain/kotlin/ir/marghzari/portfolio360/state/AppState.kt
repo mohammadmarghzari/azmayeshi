@@ -8,11 +8,7 @@ import ir.marghzari.portfolio360.core.model.PortfolioMetrics
 import ir.marghzari.portfolio360.core.model.PortfolioStyle
 import ir.marghzari.portfolio360.core.model.PriceSeries
 import ir.marghzari.portfolio360.core.model.RiskInputs
-import ir.marghzari.portfolio360.core.network.FearGreedClient
-import ir.marghzari.portfolio360.core.network.ImeClient
-import ir.marghzari.portfolio360.core.network.NewsRssClient
-import ir.marghzari.portfolio360.core.network.WorldCommodityClient
-import ir.marghzari.portfolio360.core.network.YahooFinanceClient
+import ir.marghzari.portfolio360.data.MarketRepositories
 
 /** Portfolio saved by the user in the "ذخیره پرتفوی" tab. */
 data class SavedPortfolio(
@@ -34,14 +30,21 @@ data class FearGreedAlertConfig(val lowerBound: Int = 20, val upperBound: Int = 
 /**
  * The single shared application state, mirroring Streamlit's `st.session_state` in app.py: values
  * computed on one tab (prices, weights, metrics, hedges, saved portfolios) are read by several others.
+ *
+ * Structurally this is now a facade: the data layer lives in [MarketRepositories] and the
+ * fetch/optimize pipeline's outputs in [PortfolioSession]; the delegating members below keep every
+ * existing `appState.x` call site compiling unchanged while new code can take the narrower types.
  */
-class AppState {
-    // Networking (shared singletons; each has its own internal TTL cache).
-    val yahoo = YahooFinanceClient()
-    val fearGreed = FearGreedClient()
-    val news = NewsRssClient()
-    val ime = ImeClient()
-    val worldCommodities = WorldCommodityClient()
+class AppState(
+    val repositories: MarketRepositories = MarketRepositories(),
+    val portfolio: PortfolioSession = PortfolioSession(),
+) {
+    // Data layer accessors (see MarketRepositories for why these live outside the UI state).
+    val yahoo get() = repositories.yahoo
+    val fearGreed get() = repositories.fearGreed
+    val news get() = repositories.news
+    val ime get() = repositories.ime
+    val worldCommodities get() = repositories.worldCommodities
 
     // Theme
     var isDarkTheme by mutableStateOf(true)
@@ -53,18 +56,18 @@ class AppState {
     var portfolioStyle by mutableStateOf(PortfolioStyle.MAX_SHARPE)
     var riskInputs by mutableStateOf(RiskInputs())
 
-    // Computed portfolio (set after "محاسبه پرتفوی")
-    var prices by mutableStateOf<PriceSeries?>(null)
-    var fetchFailedTickers by mutableStateOf<List<String>>(emptyList())
-    var weights by mutableStateOf<DoubleArray?>(null)
-    var covariance by mutableStateOf<Array<DoubleArray>?>(null)
-    var metrics by mutableStateOf<PortfolioMetrics?>(null)
-    var styleLabelUsed by mutableStateOf("")
-    var lastUsedRisk by mutableStateOf(RiskInputs())
+    // Computed portfolio (set after "محاسبه پرتفوی") — held by PortfolioSession.
+    var prices: PriceSeries? by portfolio::prices
+    var fetchFailedTickers: List<String> by portfolio::fetchFailedTickers
+    var weights: DoubleArray? by portfolio::weights
+    var covariance: Array<DoubleArray>? by portfolio::covariance
+    var metrics: PortfolioMetrics? by portfolio::metrics
+    var styleLabelUsed: String by portfolio::styleLabelUsed
+    var lastUsedRisk: RiskInputs by portfolio::lastUsedRisk
 
-    var isFetching by mutableStateOf(false)
-    var isCalculating by mutableStateOf(false)
-    var lastError by mutableStateOf<String?>(null)
+    var isFetching: Boolean by portfolio::isFetching
+    var isCalculating: Boolean by portfolio::isCalculating
+    var lastError: String? by portfolio::lastError
 
     // Hedges applied from the Protective Put tool onto the main portfolio (tab5 <-> tab2 interaction).
     var hedgedAssets by mutableStateOf<Map<String, HedgedAsset>>(emptyMap())
@@ -87,7 +90,5 @@ class AppState {
 
     val rf: Double get() = riskFreeRatePct / 100.0
 
-    fun resetComputedPortfolio() {
-        weights = null; covariance = null; metrics = null
-    }
+    fun resetComputedPortfolio() = portfolio.resetComputed()
 }

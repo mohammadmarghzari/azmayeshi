@@ -72,12 +72,13 @@ import ir.marghzari.portfolio360.state.AppState
 import ir.marghzari.portfolio360.theme.LocalChartColors
 import ir.marghzari.portfolio360.util.pct
 import ir.marghzari.portfolio360.theme.chartColor
+import ir.marghzari.portfolio360.ui.components.AppButton
 import ir.marghzari.portfolio360.ui.components.BadgeTone
+import ir.marghzari.portfolio360.ui.components.ButtonStyle
 import ir.marghzari.portfolio360.ui.components.CoinAvatar
 import ir.marghzari.portfolio360.ui.components.EmptyState
 import ir.marghzari.portfolio360.ui.components.Card
 import ir.marghzari.portfolio360.ui.components.StatusBadge
-import ir.marghzari.portfolio360.ui.components.GlowButton
 import ir.marghzari.portfolio360.ui.components.MetricTile
 import ir.marghzari.portfolio360.ui.components.SectionHeader
 import ir.marghzari.portfolio360.ui.components.SimpleDropdown
@@ -184,8 +185,9 @@ fun PriceChartScreen(appState: AppState) {
 
             item {
                 val inPortfolio = selectedTicker in appState.selectedTickers
-                GlowButton(
+                AppButton(
                     text = if (inPortfolio) "➖ حذف از پرتفوی" else "➕ افزودن به پرتفوی",
+                    style = if (inPortfolio) ButtonStyle.Destructive else ButtonStyle.Primary,
                     onClick = {
                         appState.selectedTickers = if (inPortfolio) {
                             appState.selectedTickers - selectedTicker
