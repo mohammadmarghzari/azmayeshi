@@ -9,6 +9,7 @@ import androidx.compose.material.icons.rounded.Insights
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Psychology
+import androidx.compose.material.icons.rounded.QueryStats
 import androidx.compose.material.icons.rounded.ReceiptLong
 import androidx.compose.material.icons.rounded.Public
 import androidx.compose.material.icons.rounded.Save
@@ -25,6 +26,7 @@ enum class Destination(val route: String, val labelFa: String, val icon: ImageVe
     RISK_RETURN("risk_return", "ریسک و بازده", Icons.Rounded.Insights),
     PRICE_CHART("price_chart", "نمودار قیمت", Icons.Rounded.ShowChart),
     TRANSACTIONS("transactions", "دفتر تراکنش‌ها", Icons.Rounded.ReceiptLong),
+    MARKETS("markets", "بازارها", Icons.Rounded.QueryStats),
     STYLE_COMPARE("style_compare", "مقایسه سبک‌ها", Icons.Rounded.Balance),
     EFFICIENT_FRONTIER("efficient_frontier", "Efficient Frontier", Icons.Rounded.TrendingUp),
     ADVANCED_OPTIONS("advanced_options", "اختیار پیشرفته", Icons.Rounded.Timeline),

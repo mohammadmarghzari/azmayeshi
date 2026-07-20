@@ -29,6 +29,7 @@ object BackgroundArt {
         Destination.RISK_RETURN -> Res.drawable.bg_sisyphus
         Destination.PRICE_CHART -> Res.drawable.bg_vortex
         Destination.TRANSACTIONS -> Res.drawable.bg_vortex
+        Destination.MARKETS -> Res.drawable.bg_crypto_orbit
         Destination.STYLE_COMPARE -> Res.drawable.bg_thinking
         Destination.EFFICIENT_FRONTIER -> Res.drawable.bg_eth_power
         Destination.ADVANCED_OPTIONS -> Res.drawable.bg_breakthrough

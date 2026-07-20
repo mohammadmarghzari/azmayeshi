@@ -81,6 +81,7 @@ import ir.marghzari.portfolio360.ui.screens.EfficientFrontierScreen
 import ir.marghzari.portfolio360.ui.screens.ImeLiveScreen
 import ir.marghzari.portfolio360.ui.screens.IranToolsScreen
 import ir.marghzari.portfolio360.ui.screens.LiveDataScreen
+import ir.marghzari.portfolio360.ui.screens.MarketsScreen
 import ir.marghzari.portfolio360.ui.screens.PriceChartScreen
 import ir.marghzari.portfolio360.ui.screens.RebalanceScreen
 import ir.marghzari.portfolio360.ui.screens.RiskReturnScreen
@@ -279,6 +280,7 @@ private fun ScreenHost(destination: Destination, appState: AppState) {
                         Destination.RISK_RETURN -> RiskReturnScreen(appState)
                         Destination.PRICE_CHART -> PriceChartScreen(appState)
                         Destination.TRANSACTIONS -> TransactionsScreen(appState)
+                        Destination.MARKETS -> MarketsScreen(appState)
                         Destination.STYLE_COMPARE -> StyleCompareScreen(appState)
                         Destination.EFFICIENT_FRONTIER -> EfficientFrontierScreen(appState)
                         Destination.ADVANCED_OPTIONS -> AdvancedOptionsScreen(appState)
