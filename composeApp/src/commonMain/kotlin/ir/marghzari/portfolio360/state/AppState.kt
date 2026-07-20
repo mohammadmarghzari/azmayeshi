@@ -25,6 +25,17 @@ data class PriceAlert(val symbol: String, val isAbove: Boolean, val threshold: D
 
 data class HedgedAsset(val ticker: String, val strike: Double, val spot: Double, val premium: Double, val days: Int)
 
+/** One row of the user's manual trade journal ("دفتر تراکنش‌ها"). */
+data class Transaction(
+    val id: Long,
+    val symbol: String,
+    val isBuy: Boolean,
+    val quantity: Double,
+    val price: Double,
+    val dateLabel: String,
+    val note: String = "",
+)
+
 data class FearGreedAlertConfig(val lowerBound: Int = 20, val upperBound: Int = 80, var lastScore: Double? = null)
 
 /**
@@ -84,6 +95,9 @@ class AppState(
 
     // Starred tickers on the asset price screen
     var favoriteTickers by mutableStateOf(setOf<String>())
+
+    // Manual trade journal (فاز ۵ — دفتر تراکنش‌ها). In-memory for now, like savedPortfolios.
+    var transactions by mutableStateOf<List<Transaction>>(emptyList())
 
     // Global "reduce motion" switch for the app-wide decorative motion system.
     var reducedMotion by mutableStateOf(false)
