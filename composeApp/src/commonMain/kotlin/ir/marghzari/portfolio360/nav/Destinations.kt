@@ -13,6 +13,7 @@ import androidx.compose.material.icons.rounded.QueryStats
 import androidx.compose.material.icons.rounded.ReceiptLong
 import androidx.compose.material.icons.rounded.Public
 import androidx.compose.material.icons.rounded.Save
+import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.SatelliteAlt
 import androidx.compose.material.icons.rounded.ShowChart
 import androidx.compose.material.icons.rounded.Timeline
@@ -27,6 +28,7 @@ enum class Destination(val route: String, val labelFa: String, val icon: ImageVe
     PRICE_CHART("price_chart", "نمودار قیمت", Icons.Rounded.ShowChart),
     TRANSACTIONS("transactions", "دفتر تراکنش‌ها", Icons.Rounded.ReceiptLong),
     MARKETS("markets", "بازارها", Icons.Rounded.QueryStats),
+    WATCHLIST("watchlist", "واچ‌لیست", Icons.Rounded.Star),
     STYLE_COMPARE("style_compare", "مقایسه سبک‌ها", Icons.Rounded.Balance),
     EFFICIENT_FRONTIER("efficient_frontier", "Efficient Frontier", Icons.Rounded.TrendingUp),
     ADVANCED_OPTIONS("advanced_options", "اختیار پیشرفته", Icons.Rounded.Timeline),

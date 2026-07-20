@@ -90,6 +90,7 @@ import ir.marghzari.portfolio360.ui.screens.SplashScreen
 import ir.marghzari.portfolio360.ui.screens.StressMonteCarloScreen
 import ir.marghzari.portfolio360.ui.screens.StyleCompareScreen
 import ir.marghzari.portfolio360.ui.screens.TransactionsScreen
+import ir.marghzari.portfolio360.ui.screens.WatchlistScreen
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -281,6 +282,7 @@ private fun ScreenHost(destination: Destination, appState: AppState) {
                         Destination.PRICE_CHART -> PriceChartScreen(appState)
                         Destination.TRANSACTIONS -> TransactionsScreen(appState)
                         Destination.MARKETS -> MarketsScreen(appState)
+                        Destination.WATCHLIST -> WatchlistScreen(appState)
                         Destination.STYLE_COMPARE -> StyleCompareScreen(appState)
                         Destination.EFFICIENT_FRONTIER -> EfficientFrontierScreen(appState)
                         Destination.ADVANCED_OPTIONS -> AdvancedOptionsScreen(appState)

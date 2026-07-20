@@ -1,17 +1,16 @@
 package ir.marghzari.portfolio360.ui.screens
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AddCircleOutline
 import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.Star
+import androidx.compose.material.icons.rounded.StarBorder
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -25,12 +24,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.StrokeJoin
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
+import ir.marghzari.portfolio360.charts.Sparkline
 import ir.marghzari.portfolio360.state.AppState
 import ir.marghzari.portfolio360.theme.LocalChartColors
 import ir.marghzari.portfolio360.ui.components.CoinAvatar
@@ -157,7 +152,7 @@ private fun MarketRow(appState: AppState, q: MarketQuote) {
         }
         Sparkline(
             values = q.closes.takeLast(30),
-            positive = positive,
+            color = if (positive) colors.green else colors.red,
         )
         Column(horizontalAlignment = Alignment.End) {
             Text(q.last.money(), style = MaterialTheme.typography.labelLarge, color = colors.textPrimary)
@@ -165,6 +160,22 @@ private fun MarketRow(appState: AppState, q: MarketQuote) {
                 q.dailyPct.pct(2, signed = true),
                 style = MaterialTheme.typography.labelSmall,
                 color = if (positive) colors.green else colors.red,
+            )
+        }
+        val isFavorite = q.entry.symbol in appState.favoriteTickers
+        IconButton(
+            onClick = {
+                appState.favoriteTickers = if (isFavorite) {
+                    appState.favoriteTickers - q.entry.symbol
+                } else {
+                    appState.favoriteTickers + q.entry.symbol
+                }
+            },
+        ) {
+            Icon(
+                if (isFavorite) Icons.Rounded.Star else Icons.Rounded.StarBorder,
+                contentDescription = if (isFavorite) "حذف از واچ‌لیست" else "افزودن به واچ‌لیست",
+                tint = if (isFavorite) colors.gold else colors.muted,
             )
         }
         IconButton(
@@ -182,33 +193,5 @@ private fun MarketRow(appState: AppState, q: MarketQuote) {
                 tint = if (inPortfolio) colors.green else colors.muted,
             )
         }
-    }
-}
-
-/** Tiny inline trend line (no axes/labels) — green when the day is up, red when down. */
-@Composable
-private fun Sparkline(values: List<Double>, positive: Boolean) {
-    val colors = LocalChartColors.current
-    val color = if (positive) colors.green else colors.red
-    Canvas(modifier = Modifier.width(64.dp).height(26.dp)) {
-        if (values.size < 2) return@Canvas
-        val minV = values.min()
-        val maxV = values.max()
-        val span = (maxV - minV).takeIf { it > 0 } ?: 1.0
-        val stepX = size.width / (values.size - 1)
-        val path = Path()
-        values.forEachIndexed { i, v ->
-            val x = i * stepX
-            val y = size.height - ((v - minV) / span * size.height).toFloat()
-            if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
-        }
-        drawPath(
-            path = path,
-            color = color,
-            style = Stroke(width = 1.8.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round),
-        )
-        val lastX = (values.size - 1) * stepX
-        val lastY = size.height - ((values.last() - minV) / span * size.height).toFloat()
-        drawCircle(color = color, radius = 2.2.dp.toPx(), center = Offset(lastX, lastY))
     }
 }
