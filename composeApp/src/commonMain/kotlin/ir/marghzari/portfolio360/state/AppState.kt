@@ -60,6 +60,7 @@ class AppState(
     val news get() = repositories.news
     val ime get() = repositories.ime
     val worldCommodities get() = repositories.worldCommodities
+    val coinglass get() = repositories.coinglass
 
     // Theme
     var isDarkTheme by mutableStateOf(true)

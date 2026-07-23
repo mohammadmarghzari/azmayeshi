@@ -26,12 +26,14 @@ object BackgroundArt {
 
     fun forDestination(destination: Destination): DrawableResource = when (destination) {
         Destination.DASHBOARD -> Res.drawable.bg_crypto_orbit
+        Destination.SETTINGS -> Res.drawable.bg_stoic
         Destination.ALLOCATION -> Res.drawable.bg_crypto_orbit
         Destination.RISK_RETURN -> Res.drawable.bg_sisyphus
         Destination.PRICE_CHART -> Res.drawable.bg_vortex
         Destination.TRANSACTIONS -> Res.drawable.bg_vortex
         Destination.MARKETS -> Res.drawable.bg_crypto_orbit
         Destination.WATCHLIST -> Res.drawable.bg_eth_power
+        Destination.LIQUIDATION_HEATMAP -> Res.drawable.bg_vortex
         Destination.STYLE_COMPARE -> Res.drawable.bg_thinking
         Destination.EFFICIENT_FRONTIER -> Res.drawable.bg_eth_power
         Destination.SAVE_PORTFOLIO -> Res.drawable.bg_treasure_cave

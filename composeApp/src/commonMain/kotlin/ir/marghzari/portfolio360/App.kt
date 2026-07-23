@@ -29,8 +29,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.LightMode
 import androidx.compose.material.icons.rounded.Menu
-import androidx.compose.material.icons.rounded.Animation
-import androidx.compose.material.icons.rounded.MotionPhotosOff
 import androidx.compose.material3.Divider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -79,10 +77,12 @@ import ir.marghzari.portfolio360.ui.screens.MarketsScreen
 import ir.marghzari.portfolio360.ui.screens.PriceChartScreen
 import ir.marghzari.portfolio360.ui.screens.RiskReturnScreen
 import ir.marghzari.portfolio360.ui.screens.SavePortfolioScreen
+import ir.marghzari.portfolio360.ui.screens.SettingsScreen
 import ir.marghzari.portfolio360.ui.screens.SplashScreen
 import ir.marghzari.portfolio360.ui.screens.StyleCompareScreen
 import ir.marghzari.portfolio360.ui.screens.TransactionsScreen
 import ir.marghzari.portfolio360.ui.screens.WatchlistScreen
+import ir.marghzari.portfolio360.ui.screens.LiquidationHeatmapScreen
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
@@ -173,13 +173,6 @@ private fun WideLayout(appState: AppState) {
                 IconButton(onClick = { appState.isDarkTheme = !appState.isDarkTheme }, modifier = Modifier.padding(top = 12.dp)) {
                     Icon(if (appState.isDarkTheme) Icons.Rounded.LightMode else Icons.Rounded.DarkMode, contentDescription = "Theme")
                 }
-                IconButton(onClick = { appState.reducedMotion = !appState.reducedMotion }) {
-                    Icon(
-                        if (appState.reducedMotion) Icons.Rounded.MotionPhotosOff else Icons.Rounded.Animation,
-                        contentDescription = "کاهش انیمیشن",
-                        tint = if (appState.reducedMotion) colors.muted else colors.blueAccent,
-                    )
-                }
             }
         }
         Column(modifier = Modifier.fillMaxSize().padding(20.dp)) {
@@ -244,13 +237,6 @@ private fun CompactLayout(appState: AppState) {
                         IconButton(onClick = { appState.isDarkTheme = !appState.isDarkTheme }) {
                             Icon(if (appState.isDarkTheme) Icons.Rounded.LightMode else Icons.Rounded.DarkMode, contentDescription = "Theme")
                         }
-                        IconButton(onClick = { appState.reducedMotion = !appState.reducedMotion }) {
-                            Icon(
-                                if (appState.reducedMotion) Icons.Rounded.MotionPhotosOff else Icons.Rounded.Animation,
-                                contentDescription = "کاهش انیمیشن",
-                                tint = if (appState.reducedMotion) colors.muted else colors.blueAccent,
-                            )
-                        }
                     },
                 )
             },
@@ -280,12 +266,14 @@ private fun ScreenHost(destination: Destination, appState: AppState, onNavigate:
                 Box(modifier = Modifier.fillMaxSize().padding(4.dp)) {
                     when (dest) {
                         Destination.DASHBOARD -> DashboardScreen(appState, onNavigate)
+                        Destination.SETTINGS -> SettingsScreen(appState)
                         Destination.ALLOCATION -> AllocationScreen(appState)
                         Destination.RISK_RETURN -> RiskReturnScreen(appState)
                         Destination.PRICE_CHART -> PriceChartScreen(appState)
                         Destination.TRANSACTIONS -> TransactionsScreen(appState)
                         Destination.MARKETS -> MarketsScreen(appState)
                         Destination.WATCHLIST -> WatchlistScreen(appState)
+                        Destination.LIQUIDATION_HEATMAP -> LiquidationHeatmapScreen(appState)
                         Destination.STYLE_COMPARE -> StyleCompareScreen(appState)
                         Destination.EFFICIENT_FRONTIER -> EfficientFrontierScreen(appState)
                         Destination.SAVE_PORTFOLIO -> SavePortfolioScreen(appState)

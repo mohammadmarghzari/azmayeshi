@@ -44,8 +44,13 @@ session-scoped (metrics types lack serializers) — known debt.
 - Persian RTL flips `TopAppBar` slots (navigationIcon renders right) — expected, not a bug.
 - Network: Yahoo/CNN need VPN inside Iran; `api.ime.co.ir` is blocked outside Iran. Error
   states must keep explaining this.
-- The IME API key is hardcoded in `ImeClient.kt` (inherited from the Python app) — must move
-  out of source before any public release (roadmap step 9).
+- The IME API key is hardcoded in `ImeClient.kt` (inherited from the Python app, already public
+  there) — must move out of source before any public release (roadmap step 9).
+- **Both repos are public GitHub repos.** Any NEW secret (unlike the legacy IME key) must never be
+  hardcoded: use the `secrets.properties` (gitignored, local builds) + `COINGLASS_API_KEY`-style
+  env var (CI, sourced from a GitHub Actions repository secret) pattern established by
+  `core/build.gradle.kts`'s `generateSecrets` task + `BuildSecrets`. Extend this pattern for any
+  future API key rather than inventing a new one.
 
 ## Roadmap (approved by the user, impact-ordered)
 Done: design system + UiState (P1) · flat dark redesign (P2) · motion polish (P3) ·

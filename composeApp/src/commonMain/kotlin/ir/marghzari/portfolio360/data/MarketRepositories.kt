@@ -1,5 +1,6 @@
 package ir.marghzari.portfolio360.data
 
+import ir.marghzari.portfolio360.core.network.CoinglassClient
 import ir.marghzari.portfolio360.core.network.FearGreedClient
 import ir.marghzari.portfolio360.core.network.ImeClient
 import ir.marghzari.portfolio360.core.network.NewsRssClient
@@ -20,4 +21,5 @@ class MarketRepositories(
     val news: NewsRssClient = NewsRssClient(),
     val ime: ImeClient = ImeClient(),
     val worldCommodities: WorldCommodityClient = WorldCommodityClient(),
+    val coinglass: CoinglassClient = CoinglassClient(),
 )
