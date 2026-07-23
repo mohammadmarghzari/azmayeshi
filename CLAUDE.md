@@ -1,7 +1,8 @@
 # CLAUDE.md — Portfolio360 (azmayeshi)
 
 **Default project skill: `.claude/skills/portfolio360-master/` — it applies to every task in
-this repository unless the user explicitly overrides it.** Read its `SKILL.md` before
+this repository unless the user explicitly overrides it.** For primarily visual work
+(screens, cards, charts, animations) additionally load `.claude/skills/portfolio360-ui/`. Read its `SKILL.md` before
 changing anything; its companion `CLAUDE.md` holds deep context (module map, known
 landmines, roadmap), `examples.md` shows worked patterns, and `checklist.md` gates every
 commit.
