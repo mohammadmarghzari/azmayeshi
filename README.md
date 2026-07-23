@@ -75,3 +75,10 @@ Kotlin 2.0 · Compose Multiplatform 1.7 · Ktor Client (CIO) · kotlinx.coroutin
 
 ---
 ساخته شده با ❤️ توسط محمد مرغزاری — بازنویسی‌شده با Claude
+
+
+## مستندات توسعه (برای ابزارهای AI و توسعه‌دهنده‌ها)
+
+- **اسکیل اصلی پروژه**: [`.claude/skills/portfolio360-master/`](.claude/skills/portfolio360-master/SKILL.md) — استانداردهای معماری، UI، مالی و خط تولید تحویل. این اسکیل به‌صورت پیش‌فرض روی همه کارهای این مخزن اعمال می‌شود.
+- [`CLAUDE.md`](CLAUDE.md) — نقطه ورود دستیارهای کدنویسی؛ به اسکیل اصلی ارجاع می‌دهد.
+- چک‌لیست پیش از هر کامیت: [`checklist.md`](.claude/skills/portfolio360-master/checklist.md)
