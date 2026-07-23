@@ -33,17 +33,6 @@ object BackgroundArt {
         Destination.WATCHLIST -> Res.drawable.bg_eth_power
         Destination.STYLE_COMPARE -> Res.drawable.bg_thinking
         Destination.EFFICIENT_FRONTIER -> Res.drawable.bg_eth_power
-        Destination.ADVANCED_OPTIONS -> Res.drawable.bg_breakthrough
-        Destination.BLACK_LITTERMAN -> Res.drawable.bg_ancient_wisdom
-        Destination.STRESS_MC -> Res.drawable.bg_stairway
-        Destination.REBALANCE -> Res.drawable.bg_treasure_cave
-        Destination.BENCHMARK -> Res.drawable.bg_stoic
-        Destination.LIVE_DATA -> Res.drawable.bg_bitcoin_king
         Destination.SAVE_PORTFOLIO -> Res.drawable.bg_treasure_cave
-        Destination.ALERTS -> Res.drawable.bg_breakthrough
-        Destination.IRAN_TOOLS -> Res.drawable.bg_vortex
-        Destination.CERTIFICATES -> Res.drawable.bg_treasure_cave
-        Destination.BOURSE_OPTIONS -> Res.drawable.bg_eth_power
-        Destination.IME_LIVE -> Res.drawable.bg_crypto_orbit
     }
 }

@@ -73,23 +73,12 @@ import ir.marghzari.portfolio360.ui.motion.LocalMotionClock
 import ir.marghzari.portfolio360.ui.motion.LocalReducedMotion
 import ir.marghzari.portfolio360.ui.motion.rememberMotionClock
 import ir.marghzari.portfolio360.ui.screens.AllocationScreen
-import ir.marghzari.portfolio360.ui.screens.AdvancedOptionsScreen
-import ir.marghzari.portfolio360.ui.screens.AlertsScreen
-import ir.marghzari.portfolio360.ui.screens.BenchmarkScreen
-import ir.marghzari.portfolio360.ui.screens.BlackLittermanScreen
-import ir.marghzari.portfolio360.ui.screens.BourseOptionsScreen
-import ir.marghzari.portfolio360.ui.screens.CertificatesScreen
 import ir.marghzari.portfolio360.ui.screens.EfficientFrontierScreen
-import ir.marghzari.portfolio360.ui.screens.ImeLiveScreen
-import ir.marghzari.portfolio360.ui.screens.IranToolsScreen
-import ir.marghzari.portfolio360.ui.screens.LiveDataScreen
 import ir.marghzari.portfolio360.ui.screens.MarketsScreen
 import ir.marghzari.portfolio360.ui.screens.PriceChartScreen
-import ir.marghzari.portfolio360.ui.screens.RebalanceScreen
 import ir.marghzari.portfolio360.ui.screens.RiskReturnScreen
 import ir.marghzari.portfolio360.ui.screens.SavePortfolioScreen
 import ir.marghzari.portfolio360.ui.screens.SplashScreen
-import ir.marghzari.portfolio360.ui.screens.StressMonteCarloScreen
 import ir.marghzari.portfolio360.ui.screens.StyleCompareScreen
 import ir.marghzari.portfolio360.ui.screens.TransactionsScreen
 import ir.marghzari.portfolio360.ui.screens.WatchlistScreen
@@ -297,18 +286,7 @@ private fun ScreenHost(destination: Destination, appState: AppState) {
                         Destination.WATCHLIST -> WatchlistScreen(appState)
                         Destination.STYLE_COMPARE -> StyleCompareScreen(appState)
                         Destination.EFFICIENT_FRONTIER -> EfficientFrontierScreen(appState)
-                        Destination.ADVANCED_OPTIONS -> AdvancedOptionsScreen(appState)
-                        Destination.BLACK_LITTERMAN -> BlackLittermanScreen(appState)
-                        Destination.STRESS_MC -> StressMonteCarloScreen(appState)
-                        Destination.REBALANCE -> RebalanceScreen(appState)
-                        Destination.BENCHMARK -> BenchmarkScreen(appState)
-                        Destination.LIVE_DATA -> LiveDataScreen(appState)
                         Destination.SAVE_PORTFOLIO -> SavePortfolioScreen(appState)
-                        Destination.ALERTS -> AlertsScreen(appState)
-                        Destination.IRAN_TOOLS -> IranToolsScreen(appState)
-                        Destination.CERTIFICATES -> CertificatesScreen(appState)
-                        Destination.BOURSE_OPTIONS -> BourseOptionsScreen(appState)
-                        Destination.IME_LIVE -> ImeLiveScreen(appState)
                     }
                 }
             }
