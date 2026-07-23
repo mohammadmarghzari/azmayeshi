@@ -25,6 +25,7 @@ object BackgroundArt {
     val splash: DrawableResource get() = Res.drawable.bg_bitcoin_king
 
     fun forDestination(destination: Destination): DrawableResource = when (destination) {
+        Destination.DASHBOARD -> Res.drawable.bg_crypto_orbit
         Destination.ALLOCATION -> Res.drawable.bg_crypto_orbit
         Destination.RISK_RETURN -> Res.drawable.bg_sisyphus
         Destination.PRICE_CHART -> Res.drawable.bg_vortex

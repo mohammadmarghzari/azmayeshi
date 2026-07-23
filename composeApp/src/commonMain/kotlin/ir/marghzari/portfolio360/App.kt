@@ -73,6 +73,7 @@ import ir.marghzari.portfolio360.ui.motion.LocalMotionClock
 import ir.marghzari.portfolio360.ui.motion.LocalReducedMotion
 import ir.marghzari.portfolio360.ui.motion.rememberMotionClock
 import ir.marghzari.portfolio360.ui.screens.AllocationScreen
+import ir.marghzari.portfolio360.ui.screens.DashboardScreen
 import ir.marghzari.portfolio360.ui.screens.EfficientFrontierScreen
 import ir.marghzari.portfolio360.ui.screens.MarketsScreen
 import ir.marghzari.portfolio360.ui.screens.PriceChartScreen
@@ -139,7 +140,7 @@ fun App() {
 
 @Composable
 private fun WideLayout(appState: AppState) {
-    var selected by remember { mutableStateOf(Destination.ALLOCATION) }
+    var selected by remember { mutableStateOf(Destination.DASHBOARD) }
     val colors = LocalChartColors.current
     Row(modifier = Modifier.fillMaxSize().background(colors.bg)) {
         NavigationRail(containerColor = colors.sidebarBg, contentColor = colors.textPrimary) {
@@ -182,7 +183,7 @@ private fun WideLayout(appState: AppState) {
             }
         }
         Column(modifier = Modifier.fillMaxSize().padding(20.dp)) {
-            ScreenHost(selected, appState)
+            ScreenHost(selected, appState, onNavigate = { selected = it })
         }
     }
 }
@@ -190,7 +191,7 @@ private fun WideLayout(appState: AppState) {
 @OptIn(ExperimentalFoundationApi::class, androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 private fun CompactLayout(appState: AppState) {
-    var selected by remember { mutableStateOf(Destination.ALLOCATION) }
+    var selected by remember { mutableStateOf(Destination.DASHBOARD) }
     val colors = LocalChartColors.current
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -255,14 +256,14 @@ private fun CompactLayout(appState: AppState) {
             },
         ) { padding ->
             Column(modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
-                ScreenHost(selected, appState)
+                ScreenHost(selected, appState, onNavigate = { selected = it })
             }
         }
     }
 }
 
 @Composable
-private fun ScreenHost(destination: Destination, appState: AppState) {
+private fun ScreenHost(destination: Destination, appState: AppState, onNavigate: (Destination) -> Unit) {
     AnimatedContent(
         targetState = destination,
         transitionSpec = {
@@ -278,6 +279,7 @@ private fun ScreenHost(destination: Destination, appState: AppState) {
             Box(modifier = Modifier.fillMaxSize().background(colors.bg)) {
                 Box(modifier = Modifier.fillMaxSize().padding(4.dp)) {
                     when (dest) {
+                        Destination.DASHBOARD -> DashboardScreen(appState, onNavigate)
                         Destination.ALLOCATION -> AllocationScreen(appState)
                         Destination.RISK_RETURN -> RiskReturnScreen(appState)
                         Destination.PRICE_CHART -> PriceChartScreen(appState)

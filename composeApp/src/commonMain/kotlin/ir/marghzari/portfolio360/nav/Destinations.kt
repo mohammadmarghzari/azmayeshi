@@ -3,6 +3,7 @@ package ir.marghzari.portfolio360.nav
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Balance
 import androidx.compose.material.icons.rounded.Dashboard
+import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Insights
 import androidx.compose.material.icons.rounded.QueryStats
 import androidx.compose.material.icons.rounded.ReceiptLong
@@ -14,6 +15,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 
 /** Icons use the "Rounded" Material family (soft terminals, thinner strokes) for a look closer to iOS's SF Symbols than the default sharp "Filled" set. */
 enum class Destination(val route: String, val labelFa: String, val icon: ImageVector) {
+    DASHBOARD("dashboard", "داشبورد", Icons.Rounded.Home),
     ALLOCATION("allocation", "تخصیص پرتفوی", Icons.Rounded.Dashboard),
     RISK_RETURN("risk_return", "ریسک و بازده", Icons.Rounded.Insights),
     PRICE_CHART("price_chart", "نمودار قیمت", Icons.Rounded.ShowChart),
